@@ -110,8 +110,8 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
           </Link>
 
           {/* Center: Navigation Menu */}
-          <nav className="hidden md:flex items-center gap-0.5">
-            <TooltipProvider delayDuration={200}>
+          <nav className="hidden md:flex items-center bg-white/10 rounded-full px-1 py-1">
+            <TooltipProvider delayDuration={300}>
               {navigation
                 .filter(item => !item.requiresAdmin || isAdmin)
                 .map((item) => {
@@ -122,22 +122,19 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
                       <TooltipTrigger asChild>
                         <Link
                           to={item.href}
-                          className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
                             isActive 
-                              ? 'bg-white/25 text-white shadow-sm' 
-                              : 'text-white/75 hover:bg-white/15 hover:text-white'
+                              ? 'bg-white text-primary shadow-sm' 
+                              : 'text-white/80 hover:bg-white/15 hover:text-white'
                           }`}
                         >
-                          <item.icon className={`w-4.5 h-4.5 transition-transform group-hover:scale-110 ${isActive ? 'text-white' : ''}`} />
+                          <item.icon className="w-3.5 h-3.5" />
                           <span className="hidden lg:block">{item.name}</span>
-                          {isActive && (
-                            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-white shadow-lg" />
-                          )}
                         </Link>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="bg-foreground text-background">
+                      <TooltipContent side="bottom" sideOffset={8}>
                         <p className="font-medium">{item.name}</p>
-                        <p className="text-xs opacity-80">{item.description}</p>
+                        <p className="text-xs text-muted-foreground">{item.description}</p>
                       </TooltipContent>
                     </Tooltip>
                   );
