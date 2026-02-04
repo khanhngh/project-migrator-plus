@@ -130,13 +130,13 @@ export default function GroupInfoCard({ group, canEdit, onUpdate }: GroupInfoCar
       const fileName = `${group.id}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('project-images')
+        .from('group-images')
         .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage
-        .from('project-images')
+        .from('group-images')
         .getPublicUrl(fileName);
 
       setEditImageUrl(urlData.publicUrl);
