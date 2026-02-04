@@ -96,50 +96,6 @@ export type Database = {
           },
         ]
       }
-      drive_file_backups: {
-        Row: {
-          backed_up_at: string | null
-          connection_id: string
-          drive_file_id: string
-          drive_url: string
-          file_name: string
-          file_size: number | null
-          id: string
-          original_bucket: string
-          original_path: string
-        }
-        Insert: {
-          backed_up_at?: string | null
-          connection_id: string
-          drive_file_id: string
-          drive_url: string
-          file_name: string
-          file_size?: number | null
-          id?: string
-          original_bucket: string
-          original_path: string
-        }
-        Update: {
-          backed_up_at?: string | null
-          connection_id?: string
-          drive_file_id?: string
-          drive_url?: string
-          file_name?: string
-          file_size?: number | null
-          id?: string
-          original_bucket?: string
-          original_path?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "drive_file_backups_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "google_drive_connections"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       feedback_comments: {
         Row: {
           content: string
@@ -239,54 +195,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      google_drive_connections: {
-        Row: {
-          access_token: string | null
-          created_at: string | null
-          folder_id: string | null
-          folder_name: string | null
-          google_email: string
-          id: string
-          is_active: boolean | null
-          refresh_token: string
-          token_expires_at: string | null
-          total_files_backed_up: number | null
-          total_size_backed_up: number | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          access_token?: string | null
-          created_at?: string | null
-          folder_id?: string | null
-          folder_name?: string | null
-          google_email: string
-          id?: string
-          is_active?: boolean | null
-          refresh_token: string
-          token_expires_at?: string | null
-          total_files_backed_up?: number | null
-          total_size_backed_up?: number | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          access_token?: string | null
-          created_at?: string | null
-          folder_id?: string | null
-          folder_name?: string | null
-          google_email?: string
-          id?: string
-          is_active?: boolean | null
-          refresh_token?: string
-          token_expires_at?: string | null
-          total_files_backed_up?: number | null
-          total_size_backed_up?: number | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
       }
       group_members: {
         Row: {
