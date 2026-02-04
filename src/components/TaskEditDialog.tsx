@@ -296,7 +296,7 @@ export default function TaskEditDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[1200px] max-h-[85vh] p-0 overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[95vw] w-[1280px] h-[720px] max-h-[90vh] p-0 overflow-hidden flex flex-col">
         {/* Header */}
         <DialogHeader className="px-5 py-3 border-b bg-muted/30 shrink-0">
           <div className="flex items-center justify-between gap-3">
