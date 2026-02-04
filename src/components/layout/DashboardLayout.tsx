@@ -20,6 +20,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   LayoutDashboard,
   FolderKanban,
   LogOut,
@@ -51,16 +57,17 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   requiresAdmin?: boolean;
+  description: string;
 }
 
 const navigation: NavItem[] = [
-  { name: 'DASHBOARD', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'PROJECTS', href: '/groups', icon: FolderKanban },
-  { name: 'TRAO ĐỔI', href: '/communication', icon: MessageSquare },
-  { name: 'THÔNG TIN', href: '/personal-info', icon: UserCircle },
-  { name: 'GÓP Ý', href: '/feedback', icon: Lightbulb },
-  { name: 'THÀNH VIÊN', href: '/members', icon: Users, requiresAdmin: true },
-  { name: 'SAO LƯU', href: '/admin/backup', icon: FolderArchive, requiresAdmin: true },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, description: 'Tổng quan các dự án' },
+  { name: 'Dự án', href: '/groups', icon: FolderKanban, description: 'Quản lý dự án nhóm' },
+  { name: 'Trao đổi', href: '/communication', icon: MessageSquare, description: 'Tin nhắn & thảo luận' },
+  { name: 'Cá nhân', href: '/personal-info', icon: UserCircle, description: 'Thông tin tài khoản' },
+  { name: 'Góp ý', href: '/feedback', icon: Lightbulb, description: 'Gửi ý kiến phản hồi' },
+  { name: 'Thành viên', href: '/members', icon: Users, requiresAdmin: true, description: 'Quản lý người dùng' },
+  { name: 'Sao lưu', href: '/admin/backup', icon: FolderArchive, requiresAdmin: true, description: 'Backup dữ liệu' },
 ];
 
 export default function DashboardLayout({ children, projectId, projectName, zaloLink }: DashboardLayoutProps) {
@@ -103,27 +110,39 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
           </Link>
 
           {/* Center: Navigation Menu */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navigation
-              .filter(item => !item.requiresAdmin || isAdmin)
-              .map((item) => {
-                const isActive = location.pathname === item.href || 
-                  (item.href === '/groups' && (location.pathname.startsWith('/groups/') || location.pathname.startsWith('/p/')));
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold tracking-wider transition-all ${
-                    isActive 
-                      ? 'bg-white/20 text-white' 
-                      : 'text-white/80 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <item.icon className="w-4 h-4" />
-                  <span>{item.name}</span>
-                </Link>
-                );
-              })}
+          <nav className="hidden md:flex items-center gap-0.5">
+            <TooltipProvider delayDuration={200}>
+              {navigation
+                .filter(item => !item.requiresAdmin || isAdmin)
+                .map((item) => {
+                  const isActive = location.pathname === item.href || 
+                    (item.href === '/groups' && (location.pathname.startsWith('/groups/') || location.pathname.startsWith('/p/')));
+                  return (
+                    <Tooltip key={item.name}>
+                      <TooltipTrigger asChild>
+                        <Link
+                          to={item.href}
+                          className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
+                            isActive 
+                              ? 'bg-white/25 text-white shadow-sm' 
+                              : 'text-white/75 hover:bg-white/15 hover:text-white'
+                          }`}
+                        >
+                          <item.icon className={`w-4.5 h-4.5 transition-transform group-hover:scale-110 ${isActive ? 'text-white' : ''}`} />
+                          <span className="hidden lg:block">{item.name}</span>
+                          {isActive && (
+                            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-white shadow-lg" />
+                          )}
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="bg-foreground text-background">
+                        <p className="font-medium">{item.name}</p>
+                        <p className="text-xs opacity-80">{item.description}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+            </TooltipProvider>
           </nav>
 
           {/* Right: Notification Bell & User Info */}
