@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
+import ResourceLinkRenderer from '@/components/ResourceLinkRenderer';
 import { 
   File, 
   FileText, 
@@ -34,6 +35,7 @@ interface ResourceTagTextareaProps {
   minHeight?: string;
   disabled?: boolean;
   fillHeight?: boolean; // New prop to fill parent height
+  showPreview?: boolean; // Show chip preview below textarea
 }
 
 function getFileIcon(fileName: string) {
@@ -85,7 +87,8 @@ export default function ResourceTagTextarea({
   className,
   minHeight = '80px',
   disabled = false,
-  fillHeight = false
+  fillHeight = false,
+  showPreview = false,
 }: ResourceTagTextareaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -196,8 +199,9 @@ export default function ResourceTagTextarea({
     const cursorPos = textareaRef.current?.selectionStart || value.length;
     const afterCursor = value.substring(cursorPos);
 
-    // Insert as [#filename](url) format
-    const insertText = `[#${resource.name}](${resource.file_path}) `;
+    // Insert as short reference to avoid long URLs in the textarea
+    // File preview will resolve res:<id> to the actual URL.
+    const insertText = `[#${resource.name}](res:${resource.id}) `;
 
     const newValue = beforeTrigger + insertText + afterCursor;
     onChange(newValue);
@@ -293,6 +297,15 @@ export default function ResourceTagTextarea({
         style={{ minHeight: fillHeight ? undefined : minHeight }}
         disabled={disabled}
       />
+
+      {showPreview && value.trim() && (
+        <div className="mt-2 rounded-md border bg-muted/20 p-2">
+          <div className="text-[10px] font-medium text-muted-foreground mb-1">Xem trước</div>
+          <div className="text-xs max-h-24 overflow-auto">
+            <ResourceLinkRenderer content={value} nameMaxWidth="520px" />
+          </div>
+        </div>
+      )}
 
       {/* Helper text - minimal */}
       <p className="mt-1 text-[10px] text-muted-foreground flex items-center gap-1">

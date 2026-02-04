@@ -128,12 +128,13 @@ export default function FilePreview() {
   
   // Direct URL support (for project resources)
   const directUrl = searchParams.get('url');
+  const resourceId = searchParams.get('rid') || searchParams.get('resourceId');
   const sourceType = searchParams.get('source'); // 'resource' | 'submission'
 
   // Computed values
   const isSemanticRoute = !!(projectSlug && taskSlug);
   const isPublicRoute = !!shareToken;
-  const isDirectUrl = !!directUrl;
+  const isDirectUrl = !!directUrl || !!resourceId;
 
   const handleGoBack = () => {
     if (isSemanticRoute || resolvedProjectSlug) {
@@ -154,17 +155,45 @@ export default function FilePreview() {
 
   // Resolve task from semantic slug or legacy params
   useEffect(() => {
-    if (isDirectUrl) {
+    if (directUrl) {
       // Direct URL mode - just set the URL directly
       setFileUrl(directUrl);
       setIsLoading(false);
+    } else if (resourceId) {
+      // Resource ID mode - resolve to a URL from backend
+      resolveResourceFromId(resourceId);
     } else if (isSemanticRoute) {
       resolveTaskFromSlugs();
     } else if (legacyTaskId) {
       setResolvedTaskId(legacyTaskId);
       fetchTaskData(legacyTaskId);
     }
-  }, [projectSlug, taskSlug, legacyTaskId, isDirectUrl, directUrl]);
+  }, [projectSlug, taskSlug, legacyTaskId, isSemanticRoute, directUrl, resourceId]);
+
+  const resolveResourceFromId = async (id: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase
+        .from('project_resources')
+        .select('file_path')
+        .eq('id', id)
+        .single();
+
+      if (error || !data?.file_path) {
+        setError('Không tìm thấy tài nguyên');
+        setFileUrl(null);
+      } else {
+        setFileUrl(data.file_path);
+      }
+    } catch (e) {
+      console.error('Error resolving resource:', e);
+      setError('Có lỗi xảy ra');
+      setFileUrl(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const resolveTaskFromSlugs = async () => {
     if (!projectSlug || !taskSlug) return;
