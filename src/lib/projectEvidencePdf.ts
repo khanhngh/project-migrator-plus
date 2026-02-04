@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import type { Group, GroupMember, Task, Stage } from '@/types/database';
+import uehLogoImage from '@/assets/ueh-logo.png';
 
 // UEH Brand Colors
 const UEH_TEAL: [number, number, number] = [26, 107, 109];
@@ -24,6 +25,7 @@ interface ActivityLog {
   description: string | null;
   user_name: string;
   created_at: string;
+  metadata?: any;
 }
 
 interface ProjectResource {
@@ -39,6 +41,14 @@ interface TaskScore {
   id: string;
   task_id: string;
   user_id: string;
+  base_score: number;
+  early_bonus: boolean;
+  bug_hunter_bonus: boolean;
+  late_penalty: number;
+  review_count: number;
+  review_penalty: number;
+  adjustment: number | null;
+  adjustment_reason: string | null;
   final_score: number | null;
 }
 
@@ -46,13 +56,33 @@ interface StageScore {
   id: string;
   stage_id: string;
   user_id: string;
+  average_score: number | null;
+  k_coefficient: number | null;
+  adjusted_score: number | null;
   final_stage_score: number | null;
+  late_task_count: number;
+  early_submission_bonus: boolean;
+  bug_hunter_bonus: boolean;
 }
 
 interface FinalScore {
   id: string;
   user_id: string;
+  weighted_average: number | null;
+  adjustment: number | null;
   final_score: number | null;
+}
+
+interface ScoreAppeal {
+  id: string;
+  user_id: string;
+  task_score_id: string | null;
+  stage_score_id: string | null;
+  reason: string;
+  status: string;
+  reviewer_id: string | null;
+  reviewer_response: string | null;
+  created_at: string;
 }
 
 export interface ExportOptions {
@@ -71,6 +101,7 @@ export interface ExportData {
   taskScores: TaskScore[];
   stageScores: StageScore[];
   finalScores: FinalScore[];
+  scoreAppeals: ScoreAppeal[];
   resources: ProjectResource[];
   activityLogs: ActivityLog[];
   options: ExportOptions;
@@ -81,6 +112,7 @@ const ACTION_TYPE_LABELS: Record<string, string> = {
   stage: 'Giai doan',
   task: 'Task',
   resource: 'Tai nguyen',
+  score: 'Diem',
 };
 
 const formatAction = (action: string): string => {
@@ -97,6 +129,9 @@ const formatAction = (action: string): string => {
     'DELETE_TASK': 'Xoa task',
     'SUBMISSION': 'Nop bai',
     'LATE_SUBMISSION': 'Nop bai tre',
+    'SCORE_ADJUSTMENT': 'Dieu chinh diem',
+    'APPEAL_SUBMITTED': 'Gui phuc khao',
+    'APPEAL_REVIEWED': 'Xu ly phuc khao',
   };
   return actionMap[action] || action;
 };
@@ -121,77 +156,191 @@ const formatRole = (role: string): string => {
   return role === 'leader' ? 'Leader' : 'Thanh vien';
 };
 
-// Add UEH Header to page
-const addUEHHeader = (doc: jsPDF, pageWidth: number, projectName: string, classCode?: string | null, instructorName?: string | null) => {
-  // Draw UEH text logo
-  doc.setFontSize(28);
+const formatAppealStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'pending': 'Cho xu ly',
+    'approved': 'Chap nhan',
+    'rejected': 'Tu choi',
+  };
+  return statusMap[status] || status;
+};
+
+// Table of Contents structure
+interface TOCEntry {
+  title: string;
+  page: number;
+  level: number;
+}
+
+// Add cover page with UEH Logo
+const addCoverPage = (
+  doc: jsPDF, 
+  pageWidth: number, 
+  pageHeight: number,
+  project: Group,
+  uehLogoDataUrl: string | null
+) => {
+  // UEH Logo at top
+  if (uehLogoDataUrl) {
+    try {
+      doc.addImage(uehLogoDataUrl, 'PNG', (pageWidth - 60) / 2, 30, 60, 30);
+    } catch (e) {
+      // Fallback to text if image fails
+      doc.setFontSize(32);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...UEH_TEAL);
+      doc.text('UEH', pageWidth / 2, 50, { align: 'center' });
+      doc.setFontSize(12);
+      doc.setTextColor(...UEH_ORANGE);
+      doc.text('UNIVERSITY', pageWidth / 2, 60, { align: 'center' });
+    }
+  } else {
+    doc.setFontSize(32);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...UEH_TEAL);
+    doc.text('UEH', pageWidth / 2, 50, { align: 'center' });
+    doc.setFontSize(12);
+    doc.setTextColor(...UEH_ORANGE);
+    doc.text('UNIVERSITY', pageWidth / 2, 60, { align: 'center' });
+  }
+
+  // Main title
+  doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...UEH_TEAL);
-  doc.text('UEH', 14, 18);
-  
-  // Draw UNIVERSITY text
-  doc.setFontSize(10);
-  doc.setTextColor(...UEH_ORANGE);
-  doc.text('UNIVERSITY', 14, 24);
-  
-  // Decorative line
+  doc.text('BAO CAO MINH CHUNG DU AN', pageWidth / 2, 90, { align: 'center' });
+
+  // Decorative lines
   doc.setDrawColor(...UEH_TEAL);
-  doc.setLineWidth(0.5);
-  doc.line(14, 28, pageWidth - 14, 28);
-  
-  // Orange accent line
+  doc.setLineWidth(1);
+  doc.line(40, 100, pageWidth - 40, 100);
   doc.setDrawColor(...UEH_ORANGE);
   doc.setLineWidth(2);
-  doc.line(14, 30, 50, 30);
+  doc.line(pageWidth / 2 - 30, 103, pageWidth / 2 + 30, 103);
 
-  // Title
+  // Project name
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(60, 60, 60);
+  const projectName = removeVietnameseDiacritics(project.name);
+  doc.text(projectName, pageWidth / 2, 125, { align: 'center' });
+
+  // Info box
+  const boxY = 145;
+  doc.setFillColor(245, 247, 250);
+  doc.setDrawColor(...UEH_TEAL);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(30, boxY, pageWidth - 60, 50, 3, 3, 'FD');
+
+  doc.setFontSize(11);
+  doc.setTextColor(80, 80, 80);
+  
+  const infoItems = [
+    ['Ma lop:', project.class_code || '-'],
+    ['Giang vien HD:', removeVietnameseDiacritics(project.instructor_name || '-')],
+    ['Email GV:', project.instructor_email || '-'],
+    ['Ngay xuat:', format(new Date(), 'dd/MM/yyyy HH:mm')],
+  ];
+
+  let infoY = boxY + 12;
+  infoItems.forEach(([label, value]) => {
+    doc.setFont('helvetica', 'bold');
+    doc.text(label, 40, infoY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(String(value), 85, infoY);
+    infoY += 10;
+  });
+
+  // Footer
+  doc.setFontSize(9);
+  doc.setTextColor(128, 128, 128);
+  doc.text('Tai lieu nay duoc tao tu dong boi he thong quan ly du an nhom UEH', pageWidth / 2, pageHeight - 20, { align: 'center' });
+};
+
+// Add Table of Contents
+const addTableOfContents = (doc: jsPDF, pageWidth: number, toc: TOCEntry[]) => {
+  doc.addPage();
+  
+  // Header
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...UEH_TEAL);
-  doc.text('BAO CAO MINH CHUNG DU AN', pageWidth / 2, 45, { align: 'center' });
-  
-  // Project name
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(60, 60, 60);
-  doc.text(removeVietnameseDiacritics(projectName), pageWidth / 2, 55, { align: 'center' });
-  
-  // Info line
-  doc.setFontSize(10);
-  doc.setTextColor(100, 100, 100);
-  const infoLine = [
-    classCode ? `Lop: ${removeVietnameseDiacritics(classCode)}` : null,
-    instructorName ? `GV HD: ${removeVietnameseDiacritics(instructorName)}` : null,
-    `Ngay xuat: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
-  ].filter(Boolean).join('   |   ');
-  doc.text(infoLine, pageWidth / 2, 63, { align: 'center' });
+  doc.text('MUC LUC', pageWidth / 2, 30, { align: 'center' });
+
+  // Decorative line
+  doc.setDrawColor(...UEH_ORANGE);
+  doc.setLineWidth(1);
+  doc.line(pageWidth / 2 - 20, 35, pageWidth / 2 + 20, 35);
+
+  let yPos = 50;
+  doc.setFontSize(11);
+
+  toc.forEach((entry) => {
+    const indent = entry.level === 1 ? 20 : entry.level === 2 ? 35 : 50;
+    
+    if (entry.level === 1) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...UEH_TEAL);
+    } else {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(60, 60, 60);
+    }
+
+    // Title
+    doc.text(entry.title, indent, yPos);
+
+    // Dotted line
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineDashPattern([1, 2], 0);
+    const titleWidth = doc.getTextWidth(entry.title);
+    doc.line(indent + titleWidth + 5, yPos, pageWidth - 35, yPos);
+    doc.setLineDashPattern([], 0);
+
+    // Page number
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    doc.text(entry.page.toString(), pageWidth - 25, yPos, { align: 'right' });
+
+    yPos += entry.level === 1 ? 10 : 7;
+  });
+
+  return doc.getNumberOfPages();
 };
 
 // Add chapter heading
-const addChapterHeading = (doc: jsPDF, title: string, yPos: number): number => {
-  doc.setFontSize(14);
+const addChapterHeading = (doc: jsPDF, title: string, yPos: number, pageWidth: number): number => {
+  doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...UEH_TEAL);
   doc.text(removeVietnameseDiacritics(title), 14, yPos);
   
   // Underline
   doc.setDrawColor(...UEH_ORANGE);
-  doc.setLineWidth(0.8);
-  doc.line(14, yPos + 2, 70, yPos + 2);
+  doc.setLineWidth(1);
+  doc.line(14, yPos + 3, 80, yPos + 3);
   
-  return yPos + 10;
+  return yPos + 15;
 };
 
 // Add section heading
 const addSectionHeading = (doc: jsPDF, title: string, yPos: number): number => {
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(80, 80, 80);
   doc.text(removeVietnameseDiacritics(title), 14, yPos);
-  return yPos + 7;
+  return yPos + 8;
 };
 
-// Add footer
+// Add sub-section heading
+const addSubSectionHeading = (doc: jsPDF, title: string, yPos: number): number => {
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(100, 100, 100);
+  doc.text(removeVietnameseDiacritics(title), 20, yPos);
+  return yPos + 6;
+};
+
+// Add footer with page number
 const addFooter = (doc: jsPDF, pageWidth: number, pageHeight: number, pageNumber: number, totalPages: number) => {
   // Footer line
   doc.setDrawColor(...UEH_TEAL);
@@ -208,86 +357,234 @@ const addFooter = (doc: jsPDF, pageWidth: number, pageHeight: number, pageNumber
   doc.setFontSize(6);
   doc.text('UNIVERSITY', 24, pageHeight - 8);
   
-  // Page number
-  doc.setTextColor(128, 128, 128);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  // Page number (prominently displayed)
+  doc.setTextColor(...UEH_TEAL);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
   doc.text(`Trang ${pageNumber} / ${totalPages}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
   
   // Date
+  doc.setTextColor(128, 128, 128);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
   doc.text(format(new Date(), 'dd/MM/yyyy'), pageWidth - 14, pageHeight - 8, { align: 'right' });
 };
 
-export const exportProjectEvidencePdf = (data: ExportData) => {
-  const { project, members, stages, tasks, taskScores, stageScores, finalScores, resources, activityLogs, options } = data;
+// Check if we need a new page
+const checkNewPage = (doc: jsPDF, yPos: number, pageHeight: number, minSpace: number = 40): number => {
+  if (yPos > pageHeight - minSpace) {
+    doc.addPage();
+    return 25;
+  }
+  return yPos;
+};
+
+// Get member name by user_id
+const getMemberName = (userId: string, members: GroupMember[]): string => {
+  const member = members.find(m => m.user_id === userId);
+  return removeVietnameseDiacritics(member?.profiles?.full_name || 'N/A');
+};
+
+const getMemberStudentId = (userId: string, members: GroupMember[]): string => {
+  const member = members.find(m => m.user_id === userId);
+  return member?.profiles?.student_id || 'N/A';
+};
+
+// Convert image to base64
+const loadImageAsBase64 = async (imageSrc: string): Promise<string | null> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = imageSrc;
+  });
+};
+
+export const exportProjectEvidencePdf = async (data: ExportData) => {
+  const { project, members, stages, tasks, taskScores, stageScores, finalScores, scoreAppeals, resources, activityLogs, options } = data;
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
+  // Load UEH logo
+  const uehLogoDataUrl = await loadImageAsBase64(uehLogoImage);
+
+  // Build TOC entries
+  const toc: TOCEntry[] = [];
+  let currentPage = 3; // Start after cover + TOC
+
+  // Always include general info
+  toc.push({ title: 'CHUONG 1: THONG TIN CHUNG', page: currentPage, level: 1 });
+  toc.push({ title: '1.1 Thong tin du an', page: currentPage, level: 2 });
+  toc.push({ title: '1.2 Thong tin giang vien', page: currentPage, level: 2 });
+  toc.push({ title: '1.3 Thong tin nhom', page: currentPage, level: 2 });
+  currentPage++;
+
+  if (options.includeMembers && members.length > 0) {
+    toc.push({ title: 'CHUONG 2: DANH SACH THANH VIEN', page: currentPage, level: 1 });
+    toc.push({ title: '2.1 Danh sach thanh vien', page: currentPage, level: 2 });
+    currentPage++;
+  }
+
+  if (options.includeTasks && tasks.length > 0) {
+    toc.push({ title: 'CHUONG 3: TIEN DO THUC HIEN', page: currentPage, level: 1 });
+    toc.push({ title: '3.1 Thong ke tong quan', page: currentPage, level: 2 });
+    toc.push({ title: '3.2 Tien do theo giai doan', page: currentPage, level: 2 });
+    currentPage++;
+    toc.push({ title: 'CHUONG 4: CHI TIET CONG VIEC', page: currentPage, level: 1 });
+    toc.push({ title: '4.1 Bang chi tiet cong viec', page: currentPage, level: 2 });
+    currentPage++;
+  }
+
+  if (options.includeScores && members.length > 0) {
+    toc.push({ title: 'CHUONG 5: DIEM QUA TRINH', page: currentPage, level: 1 });
+    toc.push({ title: '5.1 Diem theo task', page: currentPage, level: 2 });
+    toc.push({ title: '5.2 Diem theo giai doan', page: currentPage, level: 2 });
+    toc.push({ title: '5.3 Bang diem tong ket', page: currentPage, level: 2 });
+    toc.push({ title: '5.4 Chi tiet dieu chinh diem', page: currentPage, level: 2 });
+    toc.push({ title: '5.5 Phuc khao diem', page: currentPage, level: 2 });
+    currentPage += 2;
+  }
+
+  if (options.includeResources && resources.length > 0) {
+    toc.push({ title: 'CHUONG 6: TAI NGUYEN DU AN', page: currentPage, level: 1 });
+    currentPage++;
+  }
+
+  if (options.includeLogs && activityLogs.length > 0) {
+    toc.push({ title: 'CHUONG 7: NHAT KY HOAT DONG', page: currentPage, level: 1 });
+  }
+
   // ============ COVER PAGE ============
-  addUEHHeader(doc, pageWidth, project.name, project.class_code, project.instructor_name);
+  addCoverPage(doc, pageWidth, pageHeight, project, uehLogoDataUrl);
+
+  // ============ TABLE OF CONTENTS ============
+  addTableOfContents(doc, pageWidth, toc);
+
+  // ============ CHAPTER 1: GENERAL INFO ============
+  doc.addPage();
+  let yPos = 25;
+  yPos = addChapterHeading(doc, 'CHUONG 1: THONG TIN CHUNG', yPos, pageWidth);
+
+  // 1.1 Project Info
+  yPos = addSectionHeading(doc, '1.1 Thong tin du an', yPos);
   
-  let yPos = 75;
-  
-  // Chapter 1: General Info (always included)
-  yPos = addChapterHeading(doc, 'CHUONG 1: THONG TIN CHUNG', yPos);
-  
-  // Project info box
   doc.setFillColor(245, 247, 250);
   doc.setDrawColor(...UEH_TEAL);
   doc.setLineWidth(0.5);
-  doc.roundedRect(14, yPos, pageWidth - 28, 55, 3, 3, 'FD');
+  doc.roundedRect(14, yPos, pageWidth - 28, 35, 3, 3, 'FD');
   
   yPos += 8;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(60, 60, 60);
   
-  const infoItems = [
-    ['Ten du an:', removeVietnameseDiacritics(project.name)],
-    ['Mo ta:', removeVietnameseDiacritics(project.description || 'Khong co mo ta')],
-    ['Ma lop:', project.class_code || '-'],
-    ['Giang vien huong dan:', removeVietnameseDiacritics(project.instructor_name || '-')],
-    ['Email GV:', project.instructor_email || '-'],
-    ['Link Zalo:', project.zalo_link ? 'Co' : 'Khong'],
-  ];
+  doc.setFont('helvetica', 'bold');
+  doc.text('Ten du an:', 20, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(removeVietnameseDiacritics(project.name), 55, yPos);
+  yPos += 8;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Mo ta:', 20, yPos);
+  doc.setFont('helvetica', 'normal');
+  const desc = removeVietnameseDiacritics(project.description || 'Khong co mo ta').substring(0, 100);
+  doc.text(desc, 55, yPos);
+  yPos += 8;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Ma lop:', 20, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(project.class_code || '-', 55, yPos);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Link Zalo:', 100, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(project.zalo_link ? 'Co' : 'Khong co', 130, yPos);
   
-  infoItems.forEach(([label, value], index) => {
-    doc.setFont('helvetica', 'bold');
-    doc.text(label, 20, yPos + (index * 8));
-    doc.setFont('helvetica', 'normal');
-    const text = String(value).substring(0, 80);
-    doc.text(text, 60, yPos + (index * 8));
-  });
+  yPos += 20;
+
+  // 1.2 Instructor Info
+  yPos = addSectionHeading(doc, '1.2 Thong tin giang vien huong dan', yPos);
   
-  yPos += 60;
+  doc.setFillColor(245, 247, 250);
+  doc.roundedRect(14, yPos, pageWidth - 28, 20, 3, 3, 'FD');
+  
+  yPos += 8;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Ho ten:', 20, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(removeVietnameseDiacritics(project.instructor_name || '-'), 50, yPos);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Email:', 110, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(project.instructor_email || '-', 130, yPos);
+  
+  yPos += 18;
+
+  // 1.3 Group Info
+  yPos = addSectionHeading(doc, '1.3 Thong tin nhom', yPos);
+  
+  const totalMembers = members.length;
+  const leader = members.find(m => m.role === 'leader');
+  
+  doc.setFillColor(245, 247, 250);
+  doc.roundedRect(14, yPos, pageWidth - 28, 20, 3, 3, 'FD');
+  
+  yPos += 8;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('So thanh vien:', 20, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(totalMembers.toString(), 60, yPos);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Leader:', 80, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(removeVietnameseDiacritics(leader?.profiles?.full_name || '-'), 105, yPos);
 
   // ============ CHAPTER 2: MEMBERS ============
   if (options.includeMembers && members.length > 0) {
     doc.addPage();
     yPos = 25;
-    yPos = addChapterHeading(doc, 'CHUONG 2: DANH SACH THANH VIEN', yPos);
+    yPos = addChapterHeading(doc, 'CHUONG 2: DANH SACH THANH VIEN', yPos, pageWidth);
+    yPos = addSectionHeading(doc, '2.1 Danh sach thanh vien', yPos);
     
     const memberData = members.map((m, index) => [
       (index + 1).toString(),
       m.profiles?.student_id || '-',
       removeVietnameseDiacritics(m.profiles?.full_name || '-'),
+      m.profiles?.email || '-',
       formatRole(m.role),
       format(new Date(m.joined_at), 'dd/MM/yyyy'),
     ]);
     
     autoTable(doc, {
-      head: [['STT', 'MSSV', 'Ho ten', 'Vai tro', 'Ngay tham gia']],
+      head: [['STT', 'MSSV', 'Ho ten', 'Email', 'Vai tro', 'Ngay tham gia']],
       body: memberData,
       startY: yPos,
       styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
       columnStyles: {
-        0: { cellWidth: 15, halign: 'center' },
-        1: { cellWidth: 30, halign: 'center' },
-        2: { cellWidth: 55 },
-        3: { cellWidth: 30, halign: 'center' },
-        4: { cellWidth: 35, halign: 'center' },
+        0: { cellWidth: 12, halign: 'center' },
+        1: { cellWidth: 25, halign: 'center' },
+        2: { cellWidth: 45 },
+        3: { cellWidth: 50 },
+        4: { cellWidth: 22, halign: 'center' },
+        5: { cellWidth: 28, halign: 'center' },
       },
       alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
     });
@@ -297,27 +594,50 @@ export const exportProjectEvidencePdf = (data: ExportData) => {
   if (options.includeTasks && tasks.length > 0) {
     doc.addPage();
     yPos = 25;
-    yPos = addChapterHeading(doc, 'CHUONG 3: TIEN DO THUC HIEN', yPos);
+    yPos = addChapterHeading(doc, 'CHUONG 3: TIEN DO THUC HIEN', yPos, pageWidth);
     
-    // Stats overview
+    // 3.1 Stats overview
     yPos = addSectionHeading(doc, '3.1 Thong ke tong quan', yPos);
     
     const totalTasks = tasks.length;
-    const doneTasks = tasks.filter(t => t.status === 'DONE' || t.status === 'VERIFIED').length;
+    const verifiedTasks = tasks.filter(t => t.status === 'VERIFIED').length;
+    const doneTasks = tasks.filter(t => t.status === 'DONE').length;
     const inProgressTasks = tasks.filter(t => t.status === 'IN_PROGRESS').length;
     const todoTasks = tasks.filter(t => t.status === 'TODO').length;
-    const progressPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+    const completedTasks = verifiedTasks + doneTasks;
+    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     
+    // Stats box
+    doc.setFillColor(245, 247, 250);
+    doc.roundedRect(14, yPos, pageWidth - 28, 30, 3, 3, 'FD');
+    
+    yPos += 10;
     doc.setFontSize(10);
     doc.setTextColor(60, 60, 60);
-    doc.text(`Tong so task: ${totalTasks}`, 20, yPos);
-    doc.text(`Hoan thanh: ${doneTasks} (${progressPercent}%)`, 80, yPos);
-    yPos += 6;
-    doc.text(`Dang lam: ${inProgressTasks}`, 20, yPos);
-    doc.text(`Cho xu ly: ${todoTasks}`, 80, yPos);
-    yPos += 12;
     
-    // Progress by stage
+    // Row 1
+    doc.setFont('helvetica', 'bold');
+    doc.text('Tong so task:', 20, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(totalTasks.toString(), 55, yPos);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text('Tien do:', 80, yPos);
+    doc.setTextColor(...UEH_TEAL);
+    doc.text(`${progressPercent}%`, 105, yPos);
+    
+    yPos += 10;
+    doc.setTextColor(60, 60, 60);
+    
+    // Row 2
+    doc.text(`Da xac nhan: ${verifiedTasks}`, 20, yPos);
+    doc.text(`Hoan thanh: ${doneTasks}`, 60, yPos);
+    doc.text(`Dang lam: ${inProgressTasks}`, 100, yPos);
+    doc.text(`Cho xu ly: ${todoTasks}`, 140, yPos);
+    
+    yPos += 18;
+    
+    // 3.2 Progress by stage
     yPos = addSectionHeading(doc, '3.2 Tien do theo giai doan', yPos);
     
     stages.forEach((stage, stageIndex) => {
@@ -325,46 +645,80 @@ export const exportProjectEvidencePdf = (data: ExportData) => {
       const stageCompleted = stageTasks.filter(t => t.status === 'DONE' || t.status === 'VERIFIED').length;
       const stageProgress = stageTasks.length > 0 ? Math.round((stageCompleted / stageTasks.length) * 100) : 0;
       
+      yPos = checkNewPage(doc, yPos, pageHeight, 50);
+      
+      // Stage header with progress
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
-      doc.text(`3.2.${stageIndex + 1} ${removeVietnameseDiacritics(stage.name)} [${stageProgress}%]`, 20, yPos);
+      doc.setTextColor(...UEH_TEAL);
+      doc.text(`3.2.${stageIndex + 1} ${removeVietnameseDiacritics(stage.name)}`, 20, yPos);
+      
+      // Progress indicator
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...UEH_ORANGE);
+      doc.text(`[${stageCompleted}/${stageTasks.length} - ${stageProgress}%]`, 120, yPos);
+      
       yPos += 6;
       
+      // Date range if available
+      if (stage.start_date || stage.end_date) {
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        const dateRange = [
+          stage.start_date ? format(new Date(stage.start_date), 'dd/MM/yyyy') : '...',
+          stage.end_date ? format(new Date(stage.end_date), 'dd/MM/yyyy') : '...'
+        ].join(' - ');
+        doc.text(`Thoi gian: ${dateRange}`, 24, yPos);
+        yPos += 5;
+      }
+      
+      // Tasks in stage
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
+      doc.setTextColor(80, 80, 80);
+      
       stageTasks.forEach(task => {
-        const assignees = task.task_assignments?.map(a => removeVietnameseDiacritics(a.profiles?.full_name || '')).join(', ') || '-';
-        const deadline = task.deadline ? format(new Date(task.deadline), 'dd/MM/yyyy') : '-';
-        doc.text(`  - ${removeVietnameseDiacritics(task.title.substring(0, 40))} | ${formatStatus(task.status)} | DL: ${deadline}`, 24, yPos);
-        yPos += 5;
+        yPos = checkNewPage(doc, yPos, pageHeight, 20);
         
-        if (yPos > pageHeight - 30) {
-          doc.addPage();
-          yPos = 25;
-        }
+        const assignees = task.task_assignments?.map(a => removeVietnameseDiacritics(a.profiles?.full_name?.split(' ').pop() || '')).join(', ') || '-';
+        const deadline = task.deadline ? format(new Date(task.deadline), 'dd/MM/yyyy') : '-';
+        const statusColor = task.status === 'VERIFIED' ? UEH_TEAL : 
+                           task.status === 'DONE' ? [0, 150, 0] as [number, number, number] :
+                           task.status === 'IN_PROGRESS' ? UEH_ORANGE : [150, 150, 150] as [number, number, number];
+        
+        doc.setTextColor(80, 80, 80);
+        doc.text(`• ${removeVietnameseDiacritics(task.title.substring(0, 35))}`, 28, yPos);
+        
+        doc.setTextColor(...statusColor);
+        doc.text(`[${formatStatus(task.status)}]`, 130, yPos);
+        
+        doc.setTextColor(80, 80, 80);
+        doc.text(`DL: ${deadline}`, 165, yPos);
+        
+        yPos += 5;
       });
-      yPos += 4;
+      
+      yPos += 5;
     });
     
-    // Tasks without stage
+    // Unassigned tasks
     const unstagedTasks = tasks.filter(t => !t.stage_id);
     if (unstagedTasks.length > 0) {
+      yPos = checkNewPage(doc, yPos, pageHeight, 40);
+      
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
-      doc.text(`Chua phan giai doan`, 20, yPos);
+      doc.setTextColor(128, 128, 128);
+      doc.text('Chua phan giai doan', 20, yPos);
       yPos += 6;
       
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       unstagedTasks.forEach(task => {
+        yPos = checkNewPage(doc, yPos, pageHeight, 15);
         const deadline = task.deadline ? format(new Date(task.deadline), 'dd/MM/yyyy') : '-';
-        doc.text(`  - ${removeVietnameseDiacritics(task.title.substring(0, 40))} | ${formatStatus(task.status)} | DL: ${deadline}`, 24, yPos);
+        doc.text(`• ${removeVietnameseDiacritics(task.title.substring(0, 40))} | ${formatStatus(task.status)} | DL: ${deadline}`, 28, yPos);
         yPos += 5;
-        
-        if (yPos > pageHeight - 30) {
-          doc.addPage();
-          yPos = 25;
-        }
       });
     }
   }
@@ -373,85 +727,275 @@ export const exportProjectEvidencePdf = (data: ExportData) => {
   if (options.includeTasks && tasks.length > 0) {
     doc.addPage();
     yPos = 25;
-    yPos = addChapterHeading(doc, 'CHUONG 4: CHI TIET CONG VIEC', yPos);
+    yPos = addChapterHeading(doc, 'CHUONG 4: CHI TIET CONG VIEC', yPos, pageWidth);
+    yPos = addSectionHeading(doc, '4.1 Bang chi tiet cong viec', yPos);
     
     const taskData = tasks.map((t, index) => {
       const stageName = stages.find(s => s.id === t.stage_id)?.name || 'Chua phan';
       const assignees = t.task_assignments?.map(a => removeVietnameseDiacritics(a.profiles?.full_name?.split(' ').pop() || '')).join(', ') || '-';
       return [
         (index + 1).toString(),
-        removeVietnameseDiacritics(t.title.substring(0, 25)),
-        removeVietnameseDiacritics(stageName.substring(0, 15)),
+        removeVietnameseDiacritics(t.title.substring(0, 28)),
+        removeVietnameseDiacritics(stageName.substring(0, 12)),
         formatStatus(t.status),
-        t.deadline ? format(new Date(t.deadline), 'dd/MM') : '-',
+        t.deadline ? format(new Date(t.deadline), 'dd/MM HH:mm') : '-',
         assignees.substring(0, 20),
       ];
     });
     
     autoTable(doc, {
-      head: [['STT', 'Task', 'Giai doan', 'Trang thai', 'Deadline', 'Nguoi thuc hien']],
+      head: [['STT', 'Ten task', 'Giai doan', 'Trang thai', 'Deadline', 'Nguoi thuc hien']],
       body: taskData,
       startY: yPos,
       styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
       columnStyles: {
         0: { cellWidth: 12, halign: 'center' },
-        1: { cellWidth: 50 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 25, halign: 'center' },
-        4: { cellWidth: 20, halign: 'center' },
-        5: { cellWidth: 40 },
+        1: { cellWidth: 55 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 22, halign: 'center' },
+        4: { cellWidth: 28, halign: 'center' },
+        5: { cellWidth: 35 },
       },
       alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
     });
   }
 
-  // ============ CHAPTER 5: SCORES ============
+  // ============ CHAPTER 5: DETAILED SCORES ============
   if (options.includeScores && members.length > 0) {
     doc.addPage();
     yPos = 25;
-    yPos = addChapterHeading(doc, 'CHUONG 5: DIEM QUA TRINH', yPos);
+    yPos = addChapterHeading(doc, 'CHUONG 5: DIEM QUA TRINH', yPos, pageWidth);
     
-    // Final scores table
-    yPos = addSectionHeading(doc, '5.1 Bang diem tong ket', yPos);
+    // 5.1 Task scores per member
+    yPos = addSectionHeading(doc, '5.1 Diem theo task (chi tiet tung thanh vien)', yPos);
     
-    const scoreHeaders = ['STT', 'MSSV', 'Ho ten', ...stages.map((s, i) => `GD${i + 1}`), 'Tong ket'];
-    
-    const scoreData = members.map((m, index) => {
-      const stageScoreValues = stages.map(stage => {
-        const score = stageScores.find(ss => ss.stage_id === stage.id && ss.user_id === m.user_id);
-        return score?.final_stage_score?.toFixed(1) || '-';
+    if (taskScores.length > 0) {
+      members.forEach((member, memberIdx) => {
+        const memberTaskScores = taskScores.filter(ts => ts.user_id === member.user_id);
+        if (memberTaskScores.length === 0) return;
+        
+        yPos = checkNewPage(doc, yPos, pageHeight, 60);
+        
+        // Member name header
+        yPos = addSubSectionHeading(doc, `5.1.${memberIdx + 1} ${getMemberName(member.user_id, members)} (${getMemberStudentId(member.user_id, members)})`, yPos);
+        
+        const memberTaskData = memberTaskScores.map((ts, idx) => {
+          const task = tasks.find(t => t.id === ts.task_id);
+          const bonuses = [
+            ts.early_bonus ? 'Som' : null,
+            ts.bug_hunter_bonus ? 'Bug' : null,
+          ].filter(Boolean).join(', ') || '-';
+          const penalties = [
+            ts.late_penalty > 0 ? `Tre: -${ts.late_penalty}` : null,
+            ts.review_penalty > 0 ? `Review: -${ts.review_penalty}` : null,
+          ].filter(Boolean).join(', ') || '-';
+          
+          return [
+            (idx + 1).toString(),
+            removeVietnameseDiacritics(task?.title?.substring(0, 20) || '-'),
+            ts.base_score.toFixed(1),
+            bonuses,
+            penalties,
+            ts.adjustment?.toFixed(1) || '-',
+            ts.final_score?.toFixed(1) || '-',
+          ];
+        });
+        
+        autoTable(doc, {
+          head: [['#', 'Task', 'Diem goc', 'Bonus', 'Tru diem', 'Dieu chinh', 'Diem cuoi']],
+          body: memberTaskData,
+          startY: yPos,
+          styles: { fontSize: 7, cellPadding: 1.5 },
+          headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
+          columnStyles: {
+            0: { cellWidth: 10, halign: 'center' },
+            1: { cellWidth: 45 },
+            2: { cellWidth: 18, halign: 'center' },
+            3: { cellWidth: 25 },
+            4: { cellWidth: 35 },
+            5: { cellWidth: 20, halign: 'center' },
+            6: { cellWidth: 20, halign: 'center' },
+          },
+          alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
+        });
+        
+        yPos = (doc as any).lastAutoTable?.finalY + 10 || yPos + 30;
       });
-      const finalScore = finalScores.find(fs => fs.user_id === m.user_id);
-      
-      return [
-        (index + 1).toString(),
-        m.profiles?.student_id || '-',
-        removeVietnameseDiacritics(m.profiles?.full_name?.substring(0, 20) || '-'),
-        ...stageScoreValues,
-        finalScore?.final_score?.toFixed(1) || '-',
-      ];
-    });
+    } else {
+      doc.setFontSize(9);
+      doc.setTextColor(128, 128, 128);
+      doc.text('Chua co du lieu diem task.', 20, yPos);
+      yPos += 10;
+    }
     
-    autoTable(doc, {
-      head: [scoreHeaders],
-      body: scoreData,
-      startY: yPos,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
-      alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
-    });
+    // 5.2 Stage scores
+    yPos = checkNewPage(doc, yPos, pageHeight, 80);
+    yPos = addSectionHeading(doc, '5.2 Diem theo giai doan', yPos);
+    
+    if (stageScores.length > 0 && stages.length > 0) {
+      const stageScoreHeaders = ['STT', 'MSSV', 'Ho ten', ...stages.map((s, i) => `GD${i+1}`)];
+      
+      const stageScoreData = members.map((m, index) => {
+        const row = [
+          (index + 1).toString(),
+          m.profiles?.student_id || '-',
+          removeVietnameseDiacritics(m.profiles?.full_name?.substring(0, 18) || '-'),
+        ];
+        
+        stages.forEach(stage => {
+          const score = stageScores.find(ss => ss.stage_id === stage.id && ss.user_id === m.user_id);
+          row.push(score?.final_stage_score?.toFixed(1) || '-');
+        });
+        
+        return row;
+      });
+      
+      autoTable(doc, {
+        head: [stageScoreHeaders],
+        body: stageScoreData,
+        startY: yPos,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
+        alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
+      });
+      
+      yPos = (doc as any).lastAutoTable?.finalY + 10 || yPos + 30;
+    }
+    
+    // 5.3 Final scores
+    yPos = checkNewPage(doc, yPos, pageHeight, 60);
+    yPos = addSectionHeading(doc, '5.3 Bang diem tong ket', yPos);
+    
+    if (finalScores.length > 0) {
+      const finalScoreData = members.map((m, index) => {
+        const fs = finalScores.find(f => f.user_id === m.user_id);
+        return [
+          (index + 1).toString(),
+          m.profiles?.student_id || '-',
+          removeVietnameseDiacritics(m.profiles?.full_name || '-'),
+          fs?.weighted_average?.toFixed(2) || '-',
+          fs?.adjustment?.toFixed(2) || '-',
+          fs?.final_score?.toFixed(2) || '-',
+        ];
+      });
+      
+      autoTable(doc, {
+        head: [['STT', 'MSSV', 'Ho ten', 'Diem TB co trong so', 'Dieu chinh', 'Diem cuoi cung']],
+        body: finalScoreData,
+        startY: yPos,
+        styles: { fontSize: 9, cellPadding: 2.5 },
+        headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+          0: { cellWidth: 15, halign: 'center' },
+          1: { cellWidth: 28, halign: 'center' },
+          2: { cellWidth: 50 },
+          3: { cellWidth: 35, halign: 'center' },
+          4: { cellWidth: 25, halign: 'center' },
+          5: { cellWidth: 30, halign: 'center' },
+        },
+        alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
+      });
+      
+      yPos = (doc as any).lastAutoTable?.finalY + 10 || yPos + 30;
+    }
+    
+    // 5.4 Score adjustments detail
+    yPos = checkNewPage(doc, yPos, pageHeight, 60);
+    yPos = addSectionHeading(doc, '5.4 Chi tiet dieu chinh diem', yPos);
+    
+    const adjustedScores = taskScores.filter(ts => ts.adjustment && ts.adjustment !== 0);
+    if (adjustedScores.length > 0) {
+      const adjustmentData = adjustedScores.map((ts, idx) => {
+        const task = tasks.find(t => t.id === ts.task_id);
+        const memberName = getMemberName(ts.user_id, members);
+        return [
+          (idx + 1).toString(),
+          removeVietnameseDiacritics(task?.title?.substring(0, 22) || '-'),
+          memberName.substring(0, 15),
+          ts.adjustment?.toFixed(1) || '-',
+          removeVietnameseDiacritics(ts.adjustment_reason?.substring(0, 35) || '-'),
+        ];
+      });
+      
+      autoTable(doc, {
+        head: [['#', 'Task', 'Thanh vien', 'Dieu chinh', 'Ly do']],
+        body: adjustmentData,
+        startY: yPos,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 45 },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 20, halign: 'center' },
+          4: { cellWidth: 75 },
+        },
+        alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
+      });
+      
+      yPos = (doc as any).lastAutoTable?.finalY + 10 || yPos + 30;
+    } else {
+      doc.setFontSize(9);
+      doc.setTextColor(128, 128, 128);
+      doc.text('Khong co dieu chinh diem nao.', 20, yPos);
+      yPos += 10;
+    }
+    
+    // 5.5 Score appeals
+    yPos = checkNewPage(doc, yPos, pageHeight, 60);
+    yPos = addSectionHeading(doc, '5.5 Phuc khao diem', yPos);
+    
+    if (scoreAppeals.length > 0) {
+      const appealData = scoreAppeals.map((appeal, idx) => {
+        const memberName = getMemberName(appeal.user_id, members);
+        const task = appeal.task_score_id ? tasks.find(t => taskScores.find(ts => ts.id === appeal.task_score_id)?.task_id === t.id) : null;
+        const stage = appeal.stage_score_id ? stages.find(s => stageScores.find(ss => ss.id === appeal.stage_score_id)?.stage_id === s.id) : null;
+        const target = task ? removeVietnameseDiacritics(task.title.substring(0, 15)) : 
+                       stage ? removeVietnameseDiacritics(stage.name.substring(0, 15)) : '-';
+        
+        return [
+          (idx + 1).toString(),
+          memberName.substring(0, 15),
+          target,
+          removeVietnameseDiacritics(appeal.reason.substring(0, 25)),
+          formatAppealStatus(appeal.status),
+          removeVietnameseDiacritics(appeal.reviewer_response?.substring(0, 25) || '-'),
+        ];
+      });
+      
+      autoTable(doc, {
+        head: [['#', 'Thanh vien', 'Doi tuong', 'Ly do phuc khao', 'Trang thai', 'Phan hoi']],
+        body: appealData,
+        startY: yPos,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 30 },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 45 },
+          4: { cellWidth: 22, halign: 'center' },
+          5: { cellWidth: 45 },
+        },
+        alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
+      });
+    } else {
+      doc.setFontSize(9);
+      doc.setTextColor(128, 128, 128);
+      doc.text('Khong co yeu cau phuc khao nao.', 20, yPos);
+    }
   }
 
   // ============ CHAPTER 6: RESOURCES ============
   if (options.includeResources && resources.length > 0) {
     doc.addPage();
     yPos = 25;
-    yPos = addChapterHeading(doc, 'CHUONG 6: TAI NGUYEN DU AN', yPos);
+    yPos = addChapterHeading(doc, 'CHUONG 6: TAI NGUYEN DU AN', yPos, pageWidth);
     
     const resourceData = resources.map((r, index) => [
       (index + 1).toString(),
-      removeVietnameseDiacritics(r.name.substring(0, 35)),
+      removeVietnameseDiacritics(r.name.substring(0, 40)),
       r.category || '-',
       formatFileSize(r.file_size),
       format(new Date(r.created_at), 'dd/MM/yyyy'),
@@ -465,8 +1009,8 @@ export const exportProjectEvidencePdf = (data: ExportData) => {
       headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
       columnStyles: {
         0: { cellWidth: 15, halign: 'center' },
-        1: { cellWidth: 70 },
-        2: { cellWidth: 35, halign: 'center' },
+        1: { cellWidth: 75 },
+        2: { cellWidth: 30, halign: 'center' },
         3: { cellWidth: 25, halign: 'right' },
         4: { cellWidth: 30, halign: 'center' },
       },
@@ -478,9 +1022,10 @@ export const exportProjectEvidencePdf = (data: ExportData) => {
   if (options.includeLogs && activityLogs.length > 0) {
     doc.addPage();
     yPos = 25;
-    yPos = addChapterHeading(doc, 'CHUONG 7: NHAT KY HOAT DONG', yPos);
+    yPos = addChapterHeading(doc, 'CHUONG 7: NHAT KY HOAT DONG', yPos, pageWidth);
     
-    const logData = activityLogs.slice(0, 100).map((log, index) => [
+    // Show first 150 logs
+    const logData = activityLogs.slice(0, 150).map((log, index) => [
       (index + 1).toString(),
       format(new Date(log.created_at), 'dd/MM/yyyy'),
       format(new Date(log.created_at), 'HH:mm'),
@@ -501,16 +1046,16 @@ export const exportProjectEvidencePdf = (data: ExportData) => {
         2: { cellWidth: 18, halign: 'center' },
         3: { cellWidth: 35 },
         4: { cellWidth: 25, halign: 'center' },
-        5: { cellWidth: 50 },
+        5: { cellWidth: 65 },
       },
       alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
     });
     
-    if (activityLogs.length > 100) {
+    if (activityLogs.length > 150) {
       const lastY = (doc as any).lastAutoTable?.finalY || yPos + 20;
       doc.setFontSize(8);
       doc.setTextColor(128, 128, 128);
-      doc.text(`... va ${activityLogs.length - 100} hoat dong khac`, 14, lastY + 8);
+      doc.text(`... va ${activityLogs.length - 150} hoat dong khac`, 14, lastY + 8);
     }
   }
 
