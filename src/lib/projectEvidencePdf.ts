@@ -173,20 +173,31 @@ interface TOCEntry {
 }
 
 // Add cover page with UEH Logo
+type PdfImage = { dataUrl: string; width: number; height: number };
+
 const addCoverPage = (
   doc: jsPDF, 
   pageWidth: number, 
   pageHeight: number,
   project: Group,
-  uehLogoDataUrl: string | null
+  uehLogo: PdfImage | null
 ) => {
   // UEH Logo at top - maintain proper aspect ratio (original logo is wider than tall)
-  if (uehLogoDataUrl) {
+  if (uehLogo?.dataUrl) {
     try {
-      // UEH logo aspect ratio approximately 3:1 (width:height)
-      const logoWidth = 80;
-      const logoHeight = 26;
-      doc.addImage(uehLogoDataUrl, 'PNG', (pageWidth - logoWidth) / 2, 25, logoWidth, logoHeight);
+      // Keep original aspect ratio to avoid squishing
+      let logoWidth = 80;
+      let logoHeight = logoWidth * (uehLogo.height / uehLogo.width);
+
+      // Cap height to keep layout stable while preserving ratio
+      const maxLogoHeight = 30;
+      if (logoHeight > maxLogoHeight) {
+        logoHeight = maxLogoHeight;
+        logoWidth = logoHeight * (uehLogo.width / uehLogo.height);
+      }
+
+      const logoY = 22;
+      doc.addImage(uehLogo.dataUrl, 'PNG', (pageWidth - logoWidth) / 2, logoY, logoWidth, logoHeight);
     } catch (e) {
       // Fallback to text if image fails
       doc.setFontSize(32);
@@ -394,7 +405,7 @@ const getMemberStudentId = (userId: string, members: GroupMember[]): string => {
 };
 
 // Convert image to base64
-const loadImageAsBase64 = async (imageSrc: string): Promise<string | null> => {
+const loadImageAsBase64 = async (imageSrc: string): Promise<PdfImage | null> => {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -405,7 +416,11 @@ const loadImageAsBase64 = async (imageSrc: string): Promise<string | null> => {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
+        resolve({
+          dataUrl: canvas.toDataURL('image/png'),
+          width: img.naturalWidth || img.width,
+          height: img.naturalHeight || img.height,
+        });
       } else {
         resolve(null);
       }
@@ -415,14 +430,14 @@ const loadImageAsBase64 = async (imageSrc: string): Promise<string | null> => {
   });
 };
 
-export const exportProjectEvidencePdf = async (data: ExportData) => {
+const generateProjectEvidencePdf = async (data: ExportData, includeTimestampInName: boolean) => {
   const { project, members, stages, tasks, taskScores, stageScores, finalScores, scoreAppeals, resources, activityLogs, options } = data;
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
   // Load UEH logo
-  const uehLogoDataUrl = await loadImageAsBase64(uehLogoImage);
+  const uehLogo = await loadImageAsBase64(uehLogoImage);
 
   // Build TOC entries
   const toc: TOCEntry[] = [];
@@ -471,7 +486,7 @@ export const exportProjectEvidencePdf = async (data: ExportData) => {
   }
 
   // ============ COVER PAGE ============
-  addCoverPage(doc, pageWidth, pageHeight, project, uehLogoDataUrl);
+  addCoverPage(doc, pageWidth, pageHeight, project, uehLogo);
 
   // ============ TABLE OF CONTENTS ============
   addTableOfContents(doc, pageWidth, toc);
@@ -1069,177 +1084,24 @@ export const exportProjectEvidencePdf = async (data: ExportData) => {
     addFooter(doc, pageWidth, pageHeight, i, totalPages);
   }
 
-  // Save the PDF
   const slug = project.slug || project.short_id || 'project';
-  const fileName = `minh-chung-${removeVietnameseDiacritics(slug).toLowerCase().replace(/\s+/g, '-')}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`;
+  const base = `minh-chung-${removeVietnameseDiacritics(slug).toLowerCase().replace(/\s+/g, '-')}`;
+  const fileName = includeTimestampInName
+    ? `${base}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+    : `${base}.pdf`;
+
+  return { doc, fileName };
+};
+
+export const exportProjectEvidencePdf = async (data: ExportData) => {
+  const { doc, fileName } = await generateProjectEvidencePdf(data, true);
   doc.save(fileName);
-  
   return fileName;
 };
 
 // Export as Blob for backup integration (does not auto-download)
 export const generateProjectEvidencePdfBlob = async (data: ExportData): Promise<{ blob: Blob; fileName: string }> => {
-  const { project, members, stages, tasks, taskScores, stageScores, finalScores, scoreAppeals, resources, activityLogs, options } = data;
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  
-  // Load UEH logo
-  const uehLogoDataUrl = await loadImageAsBase64(uehLogoImage);
-
-  // Build TOC entries
-  const toc: TOCEntry[] = [];
-  let currentPage = 3;
-
-  toc.push({ title: 'CHUONG 1: THONG TIN CHUNG', page: currentPage, level: 1 });
-  currentPage++;
-
-  if (options.includeMembers && members.length > 0) {
-    toc.push({ title: 'CHUONG 2: DANH SACH THANH VIEN', page: currentPage, level: 1 });
-    currentPage++;
-  }
-
-  if (options.includeTasks && tasks.length > 0) {
-    toc.push({ title: 'CHUONG 3: TIEN DO THUC HIEN', page: currentPage, level: 1 });
-    currentPage++;
-    toc.push({ title: 'CHUONG 4: CHI TIET CONG VIEC', page: currentPage, level: 1 });
-    currentPage++;
-  }
-
-  if (options.includeScores && members.length > 0) {
-    toc.push({ title: 'CHUONG 5: DIEM QUA TRINH', page: currentPage, level: 1 });
-    currentPage += 2;
-  }
-
-  if (options.includeResources && resources.length > 0) {
-    toc.push({ title: 'CHUONG 6: TAI NGUYEN DU AN', page: currentPage, level: 1 });
-    currentPage++;
-  }
-
-  if (options.includeLogs && activityLogs.length > 0) {
-    toc.push({ title: 'CHUONG 7: NHAT KY HOAT DONG', page: currentPage, level: 1 });
-  }
-
-  // Cover page
-  addCoverPage(doc, pageWidth, pageHeight, project, uehLogoDataUrl);
-
-  // TOC
-  addTableOfContents(doc, pageWidth, toc);
-
-  // Chapter 1: General Info (simplified for blob version)
-  doc.addPage();
-  let yPos = 25;
-  yPos = addChapterHeading(doc, 'CHUONG 1: THONG TIN CHUNG', yPos, pageWidth);
-  
-  doc.setFillColor(245, 247, 250);
-  doc.setDrawColor(...UEH_TEAL);
-  doc.roundedRect(14, yPos, pageWidth - 28, 40, 3, 3, 'FD');
-  
-  yPos += 10;
-  doc.setFontSize(10);
-  doc.setTextColor(60, 60, 60);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Ten du an:', 20, yPos);
-  doc.setFont('helvetica', 'normal');
-  doc.text(removeVietnameseDiacritics(project.name), 55, yPos);
-  yPos += 8;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Ma lop:', 20, yPos);
-  doc.setFont('helvetica', 'normal');
-  doc.text(project.class_code || '-', 55, yPos);
-  yPos += 8;
-  doc.setFont('helvetica', 'bold');
-  doc.text('GV HD:', 20, yPos);
-  doc.setFont('helvetica', 'normal');
-  doc.text(removeVietnameseDiacritics(project.instructor_name || '-'), 55, yPos);
-
-  // Chapter 2: Members
-  if (options.includeMembers && members.length > 0) {
-    doc.addPage();
-    yPos = 25;
-    yPos = addChapterHeading(doc, 'CHUONG 2: DANH SACH THANH VIEN', yPos, pageWidth);
-    
-    const memberData = members.map((m, index) => [
-      (index + 1).toString(),
-      m.profiles?.student_id || '-',
-      removeVietnameseDiacritics(m.profiles?.full_name || '-'),
-      formatRole(m.role),
-      format(new Date(m.joined_at), 'dd/MM/yyyy'),
-    ]);
-    
-    autoTable(doc, {
-      head: [['STT', 'MSSV', 'Ho ten', 'Vai tro', 'Ngay tham gia']],
-      body: memberData,
-      startY: yPos,
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
-      alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
-    });
-  }
-
-  // Chapter 3-4: Tasks (simplified)
-  if (options.includeTasks && tasks.length > 0) {
-    doc.addPage();
-    yPos = 25;
-    yPos = addChapterHeading(doc, 'CHUONG 3-4: TIEN DO VA CHI TIET CONG VIEC', yPos, pageWidth);
-    
-    const taskData = tasks.map((t, index) => {
-      const stageName = stages.find(s => s.id === t.stage_id)?.name || 'Chua phan';
-      return [
-        (index + 1).toString(),
-        removeVietnameseDiacritics(t.title.substring(0, 30)),
-        removeVietnameseDiacritics(stageName.substring(0, 15)),
-        formatStatus(t.status),
-        t.deadline ? format(new Date(t.deadline), 'dd/MM') : '-',
-      ];
-    });
-    
-    autoTable(doc, {
-      head: [['STT', 'Task', 'Giai doan', 'Trang thai', 'Deadline']],
-      body: taskData,
-      startY: yPos,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
-      alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
-    });
-  }
-
-  // Chapter 5: Scores (simplified)
-  if (options.includeScores && finalScores.length > 0) {
-    doc.addPage();
-    yPos = 25;
-    yPos = addChapterHeading(doc, 'CHUONG 5: DIEM QUA TRINH', yPos, pageWidth);
-    
-    const scoreData = members.map((m, index) => {
-      const fs = finalScores.find(f => f.user_id === m.user_id);
-      return [
-        (index + 1).toString(),
-        m.profiles?.student_id || '-',
-        removeVietnameseDiacritics(m.profiles?.full_name || '-'),
-        fs?.final_score?.toFixed(2) || '-',
-      ];
-    });
-    
-    autoTable(doc, {
-      head: [['STT', 'MSSV', 'Ho ten', 'Diem cuoi']],
-      body: scoreData,
-      startY: yPos,
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
-      alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
-    });
-  }
-
-  // Add footers
-  const totalPages = doc.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    addFooter(doc, pageWidth, pageHeight, i, totalPages);
-  }
-
-  const slug = project.slug || project.short_id || 'project';
-  const fileName = `minh-chung-${removeVietnameseDiacritics(slug).toLowerCase().replace(/\s+/g, '-')}.pdf`;
+  const { doc, fileName } = await generateProjectEvidencePdf(data, false);
   const blob = doc.output('blob');
-  
   return { blob, fileName };
 };
