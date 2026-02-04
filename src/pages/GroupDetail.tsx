@@ -397,16 +397,16 @@ export default function GroupDetail() {
                       }
                     }}>
                       <DialogTrigger asChild><Button size="sm"><Plus className="w-4 h-4 mr-2" />Tạo task</Button></DialogTrigger>
-                        <DialogContent className="max-w-[95vw] w-[1000px] max-h-[85vh] p-0 overflow-hidden flex flex-col">
+                        <DialogContent className="max-w-[95vw] w-[900px] max-h-[85vh] p-0 overflow-hidden flex flex-col">
                         {/* Header */}
-                        <DialogHeader className="px-4 py-2.5 border-b bg-muted/30 shrink-0">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-xl bg-primary/10">
-                              <Plus className="w-5 h-5 text-primary" />
+                        <DialogHeader className="px-4 py-2 border-b bg-muted/30 shrink-0">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-primary/10">
+                              <Plus className="w-4 h-4 text-primary" />
                             </div>
                             <div>
-                              <DialogTitle className="text-base font-bold">Tạo Task mới</DialogTitle>
-                              <DialogDescription className="text-[11px]">Điền thông tin để tạo task cho project</DialogDescription>
+                              <DialogTitle className="text-sm font-bold">Tạo Task mới</DialogTitle>
+                              <DialogDescription className="text-[10px]">Điền thông tin để tạo task</DialogDescription>
                             </div>
                           </div>
                         </DialogHeader>
@@ -414,94 +414,78 @@ export default function GroupDetail() {
                         {/* Content - Single scrollable area */}
                         <div className="flex-1 overflow-hidden">
                           <div className="grid grid-cols-12 h-full">
-                            {/* Left Column (8 cols) - Flex column for better space usage */}
-                            <div className="col-span-8 p-4 overflow-y-auto border-r flex flex-col gap-3">
-                              {/* Basic Info - Task Title */}
+                            {/* Left Column (8 cols) */}
+                            <div className="col-span-8 p-3 overflow-y-auto border-r flex flex-col gap-2">
+                              {/* Task Title */}
                               <div>
-                                <div className="flex items-center gap-2 text-primary mb-2">
-                                  <FileText className="w-4 h-4" />
-                                  <span className="text-xs font-semibold uppercase">Thông tin cơ bản</span>
-                                </div>
-                                <div className="pl-6">
-                                  <Label className="text-xs mb-1 block">Tên task <span className="text-destructive">*</span></Label>
-                                  <Input value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} placeholder="Nhập tên task..." className="h-9" />
-                                </div>
+                                <Label className="text-xs font-medium mb-1 block">Tên task <span className="text-destructive">*</span></Label>
+                                <Input value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} placeholder="Nhập tên task..." className="h-8" />
                               </div>
 
                               {/* Stage & Config + Deadline - Compact row */}
-                              <div>
-                                <div className="flex items-center gap-2 text-warning mb-2">
-                                  <Layers className="w-4 h-4" />
-                                  <span className="text-xs font-semibold uppercase">Giai đoạn & Cấu hình</span>
+                              <div className="grid grid-cols-3 gap-2">
+                                {stages.length > 0 && (
+                                  <div>
+                                    <Label className="text-xs font-medium mb-1 block">Giai đoạn <span className="text-destructive">*</span></Label>
+                                    <Select value={newTaskStageId} onValueChange={setNewTaskStageId}>
+                                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn..." /></SelectTrigger>
+                                      <SelectContent>
+                                        {stages.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+                                <div>
+                                  <Label className="text-xs font-medium mb-1 block">Deadline</Label>
+                                  <DeadlineHourPicker value={newTaskDeadline} onChange={setNewTaskDeadline} placeholder="Chọn..." />
                                 </div>
-                                <div className="grid grid-cols-3 gap-3 pl-6">
-                                  {stages.length > 0 && (
-                                    <div>
-                                      <Label className="text-xs mb-1 block">Giai đoạn <span className="text-destructive">*</span></Label>
-                                      <Select value={newTaskStageId} onValueChange={setNewTaskStageId}>
-                                        <SelectTrigger className="h-8"><SelectValue placeholder="Chọn giai đoạn" /></SelectTrigger>
-                                        <SelectContent>
-                                          {stages.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                  )}
-                                  <div>
-                                    <Label className="text-xs mb-1 block flex items-center gap-1">
-                                      <Calendar className="w-3 h-3 text-blue-600" /> Deadline
-                                    </Label>
-                                    <DeadlineHourPicker value={newTaskDeadline} onChange={setNewTaskDeadline} placeholder="Chọn deadline..." />
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs mb-1 block">Giới hạn upload</Label>
-                                    <FileSizeLimitSelector value={newTaskMaxFileSize} onChange={setNewTaskMaxFileSize} />
-                                  </div>
+                                <div>
+                                  <Label className="text-xs font-medium mb-1 block">Giới hạn file</Label>
+                                  <FileSizeLimitSelector value={newTaskMaxFileSize} onChange={setNewTaskMaxFileSize} />
                                 </div>
                               </div>
 
-                              {/* Description - Expanded to fill remaining space */}
+                              {/* Description - Fill remaining space */}
                               <div className="flex-1 flex flex-col min-h-0">
-                                <Label className="text-xs mb-1 block pl-6">Mô tả công việc</Label>
-                                <div className="flex-1 pl-6">
-                                  <Textarea 
-                                    value={newTaskDescription} 
-                                    onChange={e => setNewTaskDescription(e.target.value)} 
-                                    placeholder="Mô tả chi tiết yêu cầu, tài liệu tham khảo, hướng dẫn thực hiện..." 
-                                    className="h-full min-h-[180px] resize-none text-sm" 
-                                  />
-                                </div>
+                                <Label className="text-xs font-medium mb-1 block">Mô tả công việc</Label>
+                                <Textarea 
+                                  value={newTaskDescription} 
+                                  onChange={e => setNewTaskDescription(e.target.value)} 
+                                  placeholder="Mô tả chi tiết yêu cầu, tài liệu tham khảo..." 
+                                  className="flex-1 min-h-[160px] resize-none text-sm" 
+                                />
                               </div>
                             </div>
                             
-                            {/* Right Column - Assignees (4 cols) - Compact */}
+                            {/* Right Column - Assignees (4 cols) */}
                             <div className="col-span-4 flex flex-col bg-muted/20">
-                              <div className="px-3 py-2 border-b bg-success/5">
-                                <div className="flex items-center gap-2">
-                                  <Users className="w-4 h-4 text-success" />
-                                  <span className="text-xs font-semibold uppercase text-success">Người phụ trách</span>
+                              <div className="px-2 py-1.5 border-b bg-success/5">
+                                <div className="flex items-center gap-1.5">
+                                  <Users className="w-3.5 h-3.5 text-success" />
+                                  <span className="text-[10px] font-semibold uppercase text-success">Người phụ trách</span>
                                   {newTaskAssignees.length > 0 && (
-                                    <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">
+                                    <span className="ml-auto text-[9px] px-1 py-0.5 rounded-full bg-success/10 text-success font-medium">
                                       {newTaskAssignees.length}
                                     </span>
                                   )}
                                 </div>
                               </div>
                               
-                              <div className="flex-1 overflow-y-auto p-2">
+                              <div className="flex-1 overflow-y-auto p-1.5">
                                 <div className="space-y-0.5">
                                   {members.length === 0 ? (
-                                    <div className="text-center py-4 text-muted-foreground">
-                                      <Users className="w-5 h-5 mx-auto mb-1 opacity-30" />
-                                      <p className="text-[10px]">Chưa có thành viên</p>
+                                    <div className="text-center py-3 text-muted-foreground">
+                                      <Users className="w-4 h-4 mx-auto mb-1 opacity-30" />
+                                      <p className="text-[9px]">Chưa có thành viên</p>
                                     </div>
                                   ) : (
                                     members.map(m => (
                                       <div 
                                         key={m.id} 
-                                        className={`flex items-center gap-1.5 p-1 rounded-md cursor-pointer transition-all ${
+                                        className={`flex items-center gap-1 p-1 rounded cursor-pointer transition-all ${
                                           newTaskAssignees.includes(m.user_id) 
                                             ? 'bg-success/10 ring-1 ring-success/40' 
-                                            : 'hover:bg-background border border-transparent hover:border-border'
+                                            : 'hover:bg-background'
                                         }`}
                                         onClick={() => {
                                           if (newTaskAssignees.includes(m.user_id)) {
@@ -517,19 +501,12 @@ export default function GroupDetail() {
                                           onCheckedChange={c => c ? setNewTaskAssignees([...newTaskAssignees, m.user_id]) : setNewTaskAssignees(newTaskAssignees.filter(id => id !== m.user_id))} 
                                           className="h-3 w-3"
                                         />
-                                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold text-primary shrink-0">
+                                        <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-[7px] font-bold text-primary shrink-0">
                                           {m.profiles?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                          <label htmlFor={`a-${m.user_id}`} className="text-[10px] font-medium cursor-pointer block truncate">
-                                            {m.profiles?.full_name}
-                                          </label>
-                                          <p className="text-[8px] text-muted-foreground">{m.profiles?.student_id}</p>
-                                        </div>
+                                        <span className="text-[9px] font-medium truncate flex-1">{m.profiles?.full_name}</span>
                                         {m.role === 'leader' && (
-                                          <span className="text-[7px] px-0.5 py-0 rounded-full bg-warning/10 text-warning border border-warning/30 font-medium shrink-0">
-                                            Leader
-                                          </span>
+                                          <span className="text-[7px] px-0.5 rounded bg-warning/10 text-warning shrink-0">L</span>
                                         )}
                                       </div>
                                     ))

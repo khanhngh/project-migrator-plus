@@ -1070,9 +1070,11 @@ export type Database = {
           created_by: string
           deadline: string | null
           description: string | null
+          extended_deadline: string | null
           group_id: string
           id: string
           is_hidden: boolean | null
+          max_file_size: number | null
           short_id: string | null
           slug: string | null
           stage_id: string | null
@@ -1086,9 +1088,11 @@ export type Database = {
           created_by: string
           deadline?: string | null
           description?: string | null
+          extended_deadline?: string | null
           group_id: string
           id?: string
           is_hidden?: boolean | null
+          max_file_size?: number | null
           short_id?: string | null
           slug?: string | null
           stage_id?: string | null
@@ -1102,9 +1106,11 @@ export type Database = {
           created_by?: string
           deadline?: string | null
           description?: string | null
+          extended_deadline?: string | null
           group_id?: string
           id?: string
           is_hidden?: boolean | null
+          max_file_size?: number | null
           short_id?: string | null
           slug?: string | null
           stage_id?: string | null
