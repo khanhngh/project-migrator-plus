@@ -229,81 +229,85 @@ export default function PersonalInfo() {
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header với gradient */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/70 p-6 md:p-8 text-primary-foreground">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
+        {/* Profile Header - Card Style */}
+        <Card className="overflow-hidden border-0 shadow-xl">
+          {/* Cover pattern */}
+          <div className="h-24 bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 relative">
+            <div className="absolute inset-0 opacity-50" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }} />
+          </div>
           
-          <div className="relative flex flex-col md:flex-row gap-6 items-center md:items-start">
-            {/* Avatar với hiệu ứng */}
-            <div className="relative group">
-              <div className="absolute -inset-1 bg-white/20 rounded-full blur-md group-hover:bg-white/30 transition-colors" />
-              <Avatar className="relative h-32 w-32 md:h-36 md:w-36 border-4 border-white/30 shadow-2xl ring-4 ring-white/10">
-                {profile?.avatar_url ? (
-                  <AvatarImage src={profile.avatar_url} alt={profile.full_name} className="object-cover" />
-                ) : (
-                  <AvatarFallback className="bg-white/20 text-primary-foreground text-3xl font-bold">
-                    {profile?.full_name ? getInitials(profile.full_name) : 'U'}
-                  </AvatarFallback>
-                )}
-              </Avatar>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploadingAvatar}
-                className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-all cursor-pointer backdrop-blur-sm"
-              >
-                {isUploadingAvatar ? (
-                  <Loader2 className="w-8 h-8 text-white animate-spin" />
-                ) : (
-                  <div className="flex flex-col items-center gap-1">
-                    <Camera className="w-7 h-7 text-white" />
-                    <span className="text-xs text-white font-medium">Đổi ảnh</span>
-                  </div>
-                )}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                className="hidden"
-              />
-            </div>
+          <CardContent className="relative px-6 pb-6">
+            {/* Avatar - overlapping cover */}
+            <div className="flex flex-col sm:flex-row gap-5 items-center sm:items-end -mt-16">
+              <div className="relative group">
+                <Avatar className="h-28 w-28 border-4 border-background shadow-xl ring-2 ring-border">
+                  {profile?.avatar_url ? (
+                    <AvatarImage src={profile.avatar_url} alt={profile.full_name} className="object-cover" />
+                  ) : (
+                    <AvatarFallback className="bg-muted text-muted-foreground text-2xl font-bold">
+                      {profile?.full_name ? getInitials(profile.full_name) : 'U'}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="absolute bottom-1 right-1 p-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+                >
+                  {isUploadingAvatar ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4" />
+                  )}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                />
+              </div>
 
-            {/* Thông tin cơ bản */}
-            <div className="flex-1 text-center md:text-left space-y-3">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{profile?.full_name}</h1>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-2 text-primary-foreground/80">
-                  <span className="flex items-center gap-1.5">
-                    <Hash className="w-4 h-4" />
-                    {profile?.student_id}
-                  </span>
-                  <span className="hidden md:inline">•</span>
-                  <span className="flex items-center gap-1.5">
-                    <Mail className="w-4 h-4" />
-                    {profile?.email}
-                  </span>
+              {/* Info beside avatar */}
+              <div className="flex-1 text-center sm:text-left pb-1">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                  <h1 className="text-xl md:text-2xl font-bold">{profile?.full_name}</h1>
+                  {getRoleBadge()}
+                </div>
+                <p className="text-muted-foreground mt-1">{profile?.student_id} • {profile?.email}</p>
+              </div>
+
+              {/* Quick stats - right side */}
+              <div className="flex gap-6 text-center">
+                <div>
+                  <p className="text-2xl font-bold text-primary">{profileCompletion}%</p>
+                  <p className="text-xs text-muted-foreground">Hoàn thiện</p>
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-2xl font-bold">{profile?.created_at ? format(new Date(profile.created_at), 'dd/MM', { locale: vi }) : '--'}</p>
+                  <p className="text-xs text-muted-foreground">Tham gia</p>
                 </div>
               </div>
-              
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-                {getRoleBadge()}
-                {profile?.is_approved && (
-                  <Badge variant="outline" className="bg-white/10 border-white/30 text-white gap-1">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Đã xác minh
-                  </Badge>
-                )}
-              </div>
-
-              {/* Ngày tham gia */}
-              <p className="text-sm text-primary-foreground/70 flex items-center justify-center md:justify-start gap-1.5">
-                <Calendar className="w-4 h-4" />
-                Tham gia từ {profile?.created_at ? format(new Date(profile.created_at), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}
-              </p>
             </div>
-          </div>
-        </div>
+
+            {/* Status badges */}
+            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
+              {profile?.is_approved && (
+                <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Tài khoản đã xác minh
+                </Badge>
+              )}
+              <Badge variant="outline" className="gap-1">
+                <Calendar className="w-3 h-3" />
+                Tham gia {profile?.created_at ? format(new Date(profile.created_at), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Profile Completion */}
         <Card className="border-2 border-dashed">
