@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Download, 
   Upload, 
@@ -23,7 +24,9 @@ import {
   FolderOpen,
   MessageCircle,
   Award,
-  Settings
+  Settings,
+  Filter,
+  ChevronDown
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { generateProjectEvidencePdfBlob, ExportData as EvidenceExportData, ExportOptions as EvidenceExportOptions } from '@/lib/projectEvidencePdf';
@@ -209,6 +212,7 @@ export default function AdminBackupRestore() {
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<string>('');
   const [exportProgress, setExportProgress] = useState<number>(0);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     includeMessages: true,
     includeTaskNotes: true,
@@ -217,6 +221,30 @@ export default function AdminBackupRestore() {
     includeActivityLogs: true,
     includeScores: true,
   });
+
+  const selectedCount = Object.values(exportOptions).filter(v => v).length;
+
+  const selectAllOptions = () => {
+    setExportOptions({
+      includeMessages: true,
+      includeTaskNotes: true,
+      includeTaskComments: true,
+      includeResources: true,
+      includeActivityLogs: true,
+      includeScores: true,
+    });
+  };
+
+  const deselectAllOptions = () => {
+    setExportOptions({
+      includeMessages: false,
+      includeTaskNotes: false,
+      includeTaskComments: false,
+      includeResources: false,
+      includeActivityLogs: false,
+      includeScores: false,
+    });
+  };
 
   useEffect(() => {
     if (isAdmin) {
@@ -1386,82 +1414,13 @@ export default function AdminBackupRestore() {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Export Section */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Label className="text-sm font-medium flex items-center gap-2">
             <Download className="w-4 h-4" />
             Sao lưu Project
           </Label>
           
-          {/* Export Options */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-3 rounded-lg bg-muted/50">
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                id="includeMessages" 
-                checked={exportOptions.includeMessages}
-                onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeMessages: !!checked }))}
-              />
-              <label htmlFor="includeMessages" className="text-sm flex items-center gap-1.5 cursor-pointer">
-                <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
-                Tin nhắn
-              </label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                id="includeTaskNotes" 
-                checked={exportOptions.includeTaskNotes}
-                onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeTaskNotes: !!checked }))}
-              />
-              <label htmlFor="includeTaskNotes" className="text-sm flex items-center gap-1.5 cursor-pointer">
-                <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                Ghi chú task
-              </label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                id="includeTaskComments" 
-                checked={exportOptions.includeTaskComments}
-                onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeTaskComments: !!checked }))}
-              />
-              <label htmlFor="includeTaskComments" className="text-sm flex items-center gap-1.5 cursor-pointer">
-                <MessageCircle className="w-3.5 h-3.5 text-muted-foreground" />
-                Bình luận
-              </label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                id="includeResources" 
-                checked={exportOptions.includeResources}
-                onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeResources: !!checked }))}
-              />
-              <label htmlFor="includeResources" className="text-sm flex items-center gap-1.5 cursor-pointer">
-                <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                Tài nguyên
-              </label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                id="includeActivityLogs" 
-                checked={exportOptions.includeActivityLogs}
-                onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeActivityLogs: !!checked }))}
-              />
-              <label htmlFor="includeActivityLogs" className="text-sm flex items-center gap-1.5 cursor-pointer">
-                <History className="w-3.5 h-3.5 text-muted-foreground" />
-                Nhật ký
-              </label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                id="includeScores" 
-                checked={exportOptions.includeScores}
-                onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeScores: !!checked }))}
-              />
-              <label htmlFor="includeScores" className="text-sm flex items-center gap-1.5 cursor-pointer">
-                <Award className="w-3.5 h-3.5 text-muted-foreground" />
-                Điểm số
-              </label>
-            </div>
-          </div>
-
+          {/* Project selector + Export button */}
           <div className="flex gap-3">
             <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
               <SelectTrigger className="flex-1">
@@ -1488,11 +1447,112 @@ export default function AdminBackupRestore() {
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  Xuất ZIP
+                  Xuất toàn bộ
                 </>
               )}
             </Button>
           </div>
+
+          {/* Collapsible Filter Options */}
+          <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full justify-between text-xs h-8">
+                <span className="flex items-center gap-1.5">
+                  <Filter className="w-3 h-3" />
+                  Lọc nội dung ({selectedCount}/6)
+                </span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              <div className="space-y-2 p-3 bg-muted/50 rounded-md">
+                <div className="flex gap-2 mb-2">
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={selectAllOptions}>
+                    Chọn tất cả
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={deselectAllOptions}>
+                    Bỏ chọn
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="includeMessages" 
+                      checked={exportOptions.includeMessages}
+                      onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeMessages: !!checked }))}
+                      className="h-3.5 w-3.5"
+                    />
+                    <label htmlFor="includeMessages" className="text-xs flex items-center gap-1 cursor-pointer">
+                      <MessageSquare className="w-3 h-3 text-muted-foreground" />
+                      Tin nhắn
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="includeTaskNotes" 
+                      checked={exportOptions.includeTaskNotes}
+                      onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeTaskNotes: !!checked }))}
+                      className="h-3.5 w-3.5"
+                    />
+                    <label htmlFor="includeTaskNotes" className="text-xs flex items-center gap-1 cursor-pointer">
+                      <FileText className="w-3 h-3 text-muted-foreground" />
+                      Ghi chú task
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="includeTaskComments" 
+                      checked={exportOptions.includeTaskComments}
+                      onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeTaskComments: !!checked }))}
+                      className="h-3.5 w-3.5"
+                    />
+                    <label htmlFor="includeTaskComments" className="text-xs flex items-center gap-1 cursor-pointer">
+                      <MessageCircle className="w-3 h-3 text-muted-foreground" />
+                      Bình luận
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="includeResources" 
+                      checked={exportOptions.includeResources}
+                      onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeResources: !!checked }))}
+                      className="h-3.5 w-3.5"
+                    />
+                    <label htmlFor="includeResources" className="text-xs flex items-center gap-1 cursor-pointer">
+                      <FolderOpen className="w-3 h-3 text-muted-foreground" />
+                      Tài nguyên
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="includeActivityLogs" 
+                      checked={exportOptions.includeActivityLogs}
+                      onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeActivityLogs: !!checked }))}
+                      className="h-3.5 w-3.5"
+                    />
+                    <label htmlFor="includeActivityLogs" className="text-xs flex items-center gap-1 cursor-pointer">
+                      <History className="w-3 h-3 text-muted-foreground" />
+                      Nhật ký
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="includeScores" 
+                      checked={exportOptions.includeScores}
+                      onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeScores: !!checked }))}
+                      className="h-3.5 w-3.5"
+                    />
+                    <label htmlFor="includeScores" className="text-xs flex items-center gap-1 cursor-pointer">
+                      <Award className="w-3 h-3 text-muted-foreground" />
+                      Điểm số
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Progress bar */}
           {isExporting && exportProgress > 0 && (
             <div className="space-y-1">
               <Progress value={exportProgress} className="h-2" />
