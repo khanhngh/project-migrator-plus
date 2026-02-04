@@ -1,181 +1,218 @@
 
-# Kế hoạch: Upload file trực tiếp lên Google Drive của User
+# Kế hoạch: Xuất Minh chứng Dự án (Evidence Export)
 
 ## Tổng quan
 
-Thay vì lưu file vào Supabase Storage (giới hạn dung lượng), hệ thống sẽ cho phép user kết nối Google Drive cá nhân và upload file trực tiếp lên đó.
+Thêm chức năng **"Xuất Minh chứng"** trong tab **Cài đặt** của project, cho phép Leader xuất toàn bộ dữ liệu dự án thành file PDF chuyên nghiệp với cấu trúc chương/mục rõ ràng và thương hiệu UEH.
 
----
-
-## Luồng hoạt động mới
+## Cấu trúc Báo cáo Minh chứng
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│                    KHI USER NỘP BÀI                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   User chọn file                                                │
-│         │                                                       │
-│         ▼                                                       │
-│   ┌─────────────────────────────────────────────────────┐       │
-│   │  Đã kết nối Google Drive?                           │       │
-│   └─────────────────┬───────────────────────────────────┘       │
-│                     │                                           │
-│         ┌───────────┴───────────┐                               │
-│         │                       │                               │
-│         ▼ CHƯA                  ▼ RỒI                           │
-│   ┌───────────────┐       ┌─────────────────────┐               │
-│   │ Upload lên    │       │ Upload lên          │               │
-│   │ Supabase      │       │ Google Drive        │               │
-│   │ Storage       │       │ của user            │               │
-│   │ (như cũ)      │       └─────────┬───────────┘               │
-│   └───────┬───────┘                 │                           │
-│           │                         │                           │
-│           ▼                         ▼                           │
-│   ┌──────────────────────────────────────────────┐              │
-│   │  Lưu link file (storage hoặc Drive)          │              │
-│   │  vào database                                │              │
-│   └──────────────────────────────────────────────┘              │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------+
+|                    [UEH LOGO]                          |
+|                    UEH UNIVERSITY                      |
+|                                                       |
+|        BAO CAO MINH CHUNG DU AN                       |
+|           [Ten Du An]                                 |
+|                                                       |
+|   Lop: [Ma lop]    |    GV HD: [Ten GV]               |
+|   Ngay xuat: dd/MM/yyyy HH:mm                         |
++-------------------------------------------------------+
+
+CHUONG 1: THONG TIN CHUNG
+  1.1 Thong tin du an
+  1.2 Thong tin giang vien
+  1.3 Thong tin nhom
+
+CHUONG 2: DANH SACH THANH VIEN
+  [Bang: STT | MSSV | Ho ten | Vai tro | Ngay tham gia]
+
+CHUONG 3: TIEN DO THUC HIEN
+  3.1 Thong ke tong quan
+  3.2 Tien do theo giai doan
+    3.2.1 Giai doan 1: [Ten]
+      - Task 1: [Trang thai] | [Deadline] | [Assignees]
+      - Task 2: ...
+    3.2.2 Giai doan 2: [Ten]
+      ...
+
+CHUONG 4: CHI TIET CONG VIEC
+  [Bang: STT | Task | Giai doan | Trang thai | Deadline | Nguoi thuc hien | Ngay hoan thanh]
+
+CHUONG 5: DIEM QUA TRINH
+  5.1 Diem theo giai doan
+  5.2 Diem tong ket
+  [Bang: STT | MSSV | Ho ten | Diem GD1 | Diem GD2 | ... | Diem TB]
+
+CHUONG 6: TAI NGUYEN DU AN
+  [Bang: STT | Ten file | Danh muc | Nguoi upload | Ngay upload | Kich thuoc]
+
+CHUONG 7: NHAT KY HOAT DONG
+  [Bang: STT | Ngay | Gio | Nguoi thuc hien | Hanh dong | Mo ta]
+
++-------------------------------------------------------+
+|   UEH UNIVERSITY           Trang X / Y        dd/MM/yyyy|
++-------------------------------------------------------+
 ```
 
----
+## Thiết kế Giao diện
 
-## Trải nghiệm người dùng
+### Card trong Tab Cài đặt
 
-### Lần đầu sử dụng
-
-1. User vào nộp bài, thấy vùng upload file
-2. Có thông báo: "Kết nối Google Drive để lưu file không giới hạn dung lượng"
-3. User nhấn nút "Kết nối Google Drive"
-4. Popup đăng nhập Google xuất hiện
-5. User đồng ý cấp quyền → Hoàn tất
-
-### Sau khi kết nối
-
-1. User chọn file để upload
-2. File tự động upload lên Google Drive của user
-3. Hiển thị: "Đã lưu vào Google Drive của bạn"
-4. Link file Drive được lưu vào hệ thống
-
----
-
-## Các bước triển khai
-
-### Bước 1: Xóa migration cũ và tạo schema mới
-
-Xóa hoặc sửa migration `google_drive_connections` hiện tại để phù hợp với flow mới (lưu token theo từng user, không chỉ admin).
-
-### Bước 2: Yêu cầu Google OAuth credentials
-
-Bạn cần tạo OAuth Client ID từ Google Cloud Console với scope:
-- `https://www.googleapis.com/auth/drive.file` (chỉ truy cập file do app tạo)
-
-### Bước 3: Tạo Edge Function xử lý Google Drive
-
-**`supabase/functions/google-drive-upload/index.ts`**
-
-Chức năng:
-- `action: connect` - Đổi authorization code lấy access/refresh token
-- `action: upload` - Upload file lên Drive của user
-- `action: disconnect` - Xóa kết nối
-- `action: status` - Kiểm tra trạng thái kết nối
-
-### Bước 4: Cập nhật MultiFileUploadSubmission
-
-Thêm logic:
-1. Kiểm tra user đã kết nối Drive chưa
-2. Nếu rồi → Upload lên Drive thay vì Storage
-3. Nếu chưa → Upload lên Storage như cũ + hiện gợi ý kết nối
-
-### Bước 5: Tạo component GoogleDriveConnect
-
-Nút kết nối/ngắt kết nối Google Drive, hiển thị trong:
-- Dialog nộp bài (TaskSubmissionDialog)
-- Trang thông tin cá nhân (PersonalInfo)
-
----
-
-## Database schema (điều chỉnh)
-
-```sql
--- Bảng lưu kết nối Google Drive của MỖI user
-CREATE TABLE user_drive_connections (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  google_email TEXT NOT NULL,
-  access_token TEXT,          -- Có thể null (hết hạn)
-  refresh_token TEXT NOT NULL, -- Dùng để làm mới access_token
-  folder_id TEXT,              -- Folder "TaskFlow" trên Drive user
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(user_id)
-);
-
--- RLS: User chỉ xem/quản lý kết nối của chính mình
-ALTER TABLE user_drive_connections ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users manage own drive connection"
-  ON user_drive_connections FOR ALL
-  USING (auth.uid() = user_id);
+```text
++--------------------------------------------------+
+| [FileText Icon]  Xuất Minh chứng                  |
+| Xuất toàn bộ dữ liệu dự án ra file PDF           |
+|                                                   |
+| [ ] Thông tin thành viên                          |
+| [ ] Chi tiết công việc (Tasks)                    |
+| [ ] Điểm quá trình                                |
+| [ ] Tài nguyên dự án                              |
+| [ ] Nhật ký hoạt động                             |
+|                                                   |
+| [======= Đang tải dữ liệu... =======] (khi xuất)  |
+|                                                   |
+|                    [Xuất PDF] (Button UEH teal)   |
++--------------------------------------------------+
 ```
 
----
+## Chi tiết Kỹ thuật
 
-## Ưu điểm
+### 1. File mới cần tạo
 
-| Tiêu chí | Mô tả |
-|----------|-------|
-| Tiết kiệm storage | File lưu trên Drive của user, không tốn dung lượng hệ thống |
-| Không giới hạn | User có Drive 15GB miễn phí, hoặc nhiều hơn nếu UEH |
-| Tùy chọn | User không muốn kết nối vẫn dùng Storage như cũ |
-| Đồng bộ | File nằm trong Drive cá nhân, user dễ quản lý |
+**`src/lib/projectEvidencePdf.ts`** - Logic xuất PDF minh chứng:
+- Sử dụng thư viện `jspdf` + `jspdf-autotable` (đã có sẵn)
+- Tái sử dụng style UEH từ `activityLogPdf.ts`:
+  - Màu UEH Teal: #1A6B6D
+  - Màu UEH Orange: #E07B39
+  - Font helvetica (tương thích PDF, không dấu tiếng Việt)
+- Cấu trúc hàm chính:
+  ```typescript
+  exportProjectEvidencePdf({
+    project: Group,
+    members: GroupMember[],
+    stages: Stage[],
+    tasks: Task[],
+    scores: { taskScores, stageScores, finalScores },
+    resources: ProjectResource[],
+    activityLogs: ActivityLog[],
+    options: {
+      includeMembers: boolean,
+      includeTasks: boolean,
+      includeScores: boolean,
+      includeResources: boolean,
+      includeLogs: boolean,
+    }
+  })
+  ```
 
----
+**`src/components/ProjectEvidenceExport.tsx`** - Component UI:
+- Card với checkboxes để chọn nội dung xuất
+- Button xuất với loading state
+- Fetch tất cả dữ liệu cần thiết khi click xuất
 
-## Nhược điểm và giải pháp
+### 2. File cần chỉnh sửa
 
-| Nhược điểm | Giải pháp |
-|------------|-----------|
-| Cần Google Client ID/Secret | Một lần cấu hình, sau đó tự động |
-| User phải đăng nhập Google | Tùy chọn, không bắt buộc |
-| Token có thể hết hạn | Auto-refresh bằng refresh_token |
+**`src/pages/GroupDetail.tsx`**:
+- Import và thêm component `ProjectEvidenceExport` vào tab Settings
+- Đặt trước Card "Xóa project"
 
----
+### 3. Dữ liệu cần fetch khi xuất
 
-## Yêu cầu từ bạn
+| Dữ liệu | Bảng | Điều kiện |
+|---------|------|-----------|
+| Thông tin dự án | groups | id = groupId |
+| Thành viên | group_members + profiles | group_id = groupId |
+| Giai đoạn | stages | group_id = groupId |
+| Tasks + Assignments | tasks + task_assignments | group_id = groupId |
+| Điểm task | task_scores | task_id in tasks |
+| Điểm giai đoạn | member_stage_scores | stage_id in stages |
+| Điểm cuối | member_final_scores | group_id = groupId |
+| Tài nguyên | project_resources | group_id = groupId |
+| Nhật ký | activity_logs | group_id = groupId |
 
-Để triển khai, bạn cần:
+### 4. Format PDF từng chương
 
-1. **Tạo Google Cloud Project** (miễn phí) tại console.cloud.google.com
-2. **Bật Google Drive API**
-3. **Tạo OAuth 2.0 Client ID** (Web application)
-   - Authorized redirect URI: `https://vwfexrhbnnuyqnkgqdml.supabase.co/functions/v1/google-drive-upload`
-4. **Cung cấp**:
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
+**Chương 1 - Thông tin chung:**
+- Box thông tin với border teal
+- Các field: Tên dự án, Mô tả, Mã lớp, GV hướng dẫn, Email GV, Link Zalo
 
----
+**Chương 2 - Thành viên:**
+- Bảng với header teal
+- Cột: STT, MSSV, Họ tên, Vai trò, Ngày tham gia
+- Highlight Leader với badge màu khác
 
-## Các file sẽ tạo/sửa
+**Chương 3 - Tiến độ:**
+- Thống kê tổng: Tổng tasks, Hoàn thành, Đang làm, Chờ xử lý
+- Liệt kê theo từng giai đoạn với progress bar text
 
-| File | Hành động | Mô tả |
-|------|-----------|-------|
-| Database migration | Sửa | Đổi schema phù hợp flow mới |
-| `supabase/functions/google-drive-upload/index.ts` | Tạo mới | Edge function xử lý OAuth + upload |
-| `src/components/GoogleDriveConnect.tsx` | Tạo mới | Nút kết nối Drive |
-| `src/components/MultiFileUploadSubmission.tsx` | Sửa | Thêm logic upload lên Drive |
-| `src/components/TaskSubmissionDialog.tsx` | Sửa | Tích hợp nút kết nối Drive |
+**Chương 4 - Chi tiết công việc:**
+- Bảng đầy đủ thông tin task
+- Màu status khác nhau (TODO, IN_PROGRESS, DONE, VERIFIED)
 
----
+**Chương 5 - Điểm quá trình:**
+- Bảng điểm theo giai đoạn
+- Bảng điểm tổng kết cuối cùng
 
-## Tóm tắt
+**Chương 6 - Tài nguyên:**
+- Bảng liệt kê file với metadata
 
-Đây là giải pháp để mỗi user tự quản lý file trên Google Drive cá nhân:
-- User kết nối 1 lần → sau đó tự động
-- Không bắt buộc, vẫn có fallback về Storage
-- Tiết kiệm dung lượng hệ thống đáng kể
+**Chương 7 - Nhật ký:**
+- Tái sử dụng format từ `activityLogPdf.ts`
 
-Bạn có muốn tôi hướng dẫn chi tiết cách lấy Google Client ID/Secret không?
+### 5. Chi tiết Style PDF
+
+```typescript
+// UEH Colors (giống activityLogPdf.ts)
+const UEH_TEAL: [number, number, number] = [26, 107, 109];
+const UEH_ORANGE: [number, number, number] = [224, 123, 57];
+const UEH_TEAL_LIGHT: [number, number, number] = [230, 243, 243];
+
+// Chapter heading style
+fontSize: 14, bold, color: UEH_TEAL
+// Section heading style  
+fontSize: 11, bold, color: gray-dark
+// Table header
+fillColor: UEH_TEAL, textColor: white
+// Alternating rows
+fillColor: UEH_TEAL_LIGHT
+```
+
+## Luồng Xuất PDF
+
+```text
+User clicks [Xuất PDF]
+       |
+       v
+Validate at least 1 option selected
+       |
+       v
+Show loading state + progress bar
+       |
+       v
+Fetch all selected data in parallel
+       |
+       v
+Generate PDF with chapters
+       |
+       v
+Auto-download: "minh-chung-[project-slug]-[timestamp].pdf"
+       |
+       v
+Show success toast
+```
+
+## Tóm tắt Thay đổi
+
+| File | Hành động |
+|------|-----------|
+| `src/lib/projectEvidencePdf.ts` | Tạo mới - Logic xuất PDF |
+| `src/components/ProjectEvidenceExport.tsx` | Tạo mới - Component UI |
+| `src/pages/GroupDetail.tsx` | Chỉnh sửa - Thêm component vào Settings |
+
+## Ghi chú Quan trọng
+
+- Sử dụng `removeVietnameseDiacritics()` cho tất cả text (PDF không hỗ trợ font tiếng Việt)
+- Mỗi chương bắt đầu trang mới để dễ đọc
+- Footer mỗi trang có UEH branding + số trang
+- Tên file output: `minh-chung-[project-slug]-YYYYMMDD-HHmmss.pdf`
