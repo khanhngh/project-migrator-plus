@@ -238,11 +238,12 @@ export default function TaskNotes({ taskId, className = '', compact = false }: T
       const versionNumber = notes.length + 1;
       const { data, error } = await supabase
         .from('task_notes')
-        .insert({
+        .insert([{
           task_id: taskId,
           version_name: `Phiên bản ${versionNumber}`,
-          content: ''
-        })
+          content: '',
+          created_by: (await supabase.auth.getUser()).data.user?.id || ''
+        }])
         .select()
         .single();
 
