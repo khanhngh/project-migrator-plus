@@ -162,7 +162,7 @@ export default function ProjectActivityLog({ groupId, groupName = 'Project' }: P
   const handleExportPdf = async () => {
     setIsExporting(true);
     try {
-      exportActivityLogToPdf({
+      await exportActivityLogToPdf({
         projectName: groupName,
         logs: filteredLogs,
         dateFrom: filters.dateFrom,
