@@ -1,11 +1,44 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
+import uehLogoUrl from '@/assets/ueh-logo.png';
 
 // UEH Brand Colors
 const UEH_TEAL: [number, number, number] = [26, 107, 109]; // #1A6B6D
 const UEH_ORANGE: [number, number, number] = [224, 123, 57]; // #E07B39
 const UEH_TEAL_LIGHT: [number, number, number] = [230, 243, 243]; // Light teal for alternating rows
+
+interface PdfImage {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
+// Load image as base64 with dimensions
+const loadImageAsBase64 = (url: string): Promise<PdfImage> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve({
+          dataUrl: canvas.toDataURL('image/png'),
+          width: img.naturalWidth,
+          height: img.naturalHeight
+        });
+      } else {
+        reject(new Error('Could not get canvas context'));
+      }
+    };
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = url;
+  });
+};
 
 interface ActivityLog {
   id: string;
@@ -62,52 +95,68 @@ const removeVietnameseDiacritics = (str: string): string => {
     .replace(/Đ/g, 'D');
 };
 
-// UEH Logo as base64 (simplified text version for PDF)
-const addUEHHeader = (doc: jsPDF, pageWidth: number) => {
-  // Draw UEH text logo
-  doc.setFontSize(28);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...UEH_TEAL);
-  doc.text('UEH', 14, 18);
-  
-  // Draw UNIVERSITY text
-  doc.setFontSize(10);
-  doc.setTextColor(...UEH_ORANGE);
-  doc.text('UNIVERSITY', 14, 24);
-  
-  // Decorative line
-  doc.setDrawColor(...UEH_TEAL);
-  doc.setLineWidth(0.5);
-  doc.line(14, 28, pageWidth - 14, 28);
-  
-  // Orange accent line
-  doc.setDrawColor(...UEH_ORANGE);
-  doc.setLineWidth(2);
-  doc.line(14, 30, 50, 30);
+// Add UEH Header with actual logo
+const addUEHHeader = async (doc: jsPDF, pageWidth: number) => {
+  try {
+    const logo = await loadImageAsBase64(uehLogoUrl);
+    const logoWidth = 50;
+    const logoHeight = logoWidth * (logo.height / logo.width); // Keep aspect ratio
+    doc.addImage(logo.dataUrl, 'PNG', 14, 10, logoWidth, logoHeight);
+    
+    // Decorative line below logo
+    const lineY = 12 + logoHeight + 4;
+    doc.setDrawColor(...UEH_TEAL);
+    doc.setLineWidth(0.5);
+    doc.line(14, lineY, pageWidth - 14, lineY);
+    
+    // Orange accent line
+    doc.setDrawColor(...UEH_ORANGE);
+    doc.setLineWidth(2);
+    doc.line(14, lineY + 2, 50, lineY + 2);
+  } catch (error) {
+    console.error('Failed to load UEH logo, using text fallback:', error);
+    // Fallback to text if image fails
+    doc.setFontSize(28);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...UEH_TEAL);
+    doc.text('UEH', 14, 18);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(...UEH_ORANGE);
+    doc.text('UNIVERSITY', 14, 24);
+    
+    doc.setDrawColor(...UEH_TEAL);
+    doc.setLineWidth(0.5);
+    doc.line(14, 28, pageWidth - 14, 28);
+    
+    doc.setDrawColor(...UEH_ORANGE);
+    doc.setLineWidth(2);
+    doc.line(14, 30, 50, 30);
+  }
 };
 
-export const exportActivityLogToPdf = ({ projectName, logs, dateFrom, dateTo, filters }: ExportOptions) => {
+export const exportActivityLogToPdf = async ({ projectName, logs, dateFrom, dateTo, filters }: ExportOptions) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   
-  // Add UEH Header
-  addUEHHeader(doc, pageWidth);
+  // Add UEH Header (async for loading logo)
+  await addUEHHeader(doc, pageWidth);
   
-  // Title
+  // Title - positioned lower to accommodate logo
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...UEH_TEAL);
   const title = removeVietnameseDiacritics(`NHAT KY HOAT DONG`);
-  doc.text(title, pageWidth / 2, 42, { align: 'center' });
+  doc.text(title, pageWidth / 2, 48, { align: 'center' });
   
   // Project name
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(60, 60, 60);
-  doc.text(removeVietnameseDiacritics(projectName), pageWidth / 2, 50, { align: 'center' });
+  doc.text(removeVietnameseDiacritics(projectName), pageWidth / 2, 56, { align: 'center' });
   
   // Filter info box
-  let yPos = 58;
+  let yPos = 64;
   doc.setFillColor(245, 247, 250);
   doc.roundedRect(14, yPos - 4, pageWidth - 28, 20, 2, 2, 'F');
   
