@@ -1,7 +1,11 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+
+// UEH Brand Colors
+const UEH_TEAL: [number, number, number] = [26, 107, 109]; // #1A6B6D
+const UEH_ORANGE: [number, number, number] = [224, 123, 57]; // #E07B39
+const UEH_TEAL_LIGHT: [number, number, number] = [230, 243, 243]; // Light teal for alternating rows
 
 interface ActivityLog {
   id: string;
@@ -17,6 +21,11 @@ interface ExportOptions {
   logs: ActivityLog[];
   dateFrom?: Date;
   dateTo?: Date;
+  filters?: {
+    actionType?: string;
+    action?: string;
+    userName?: string;
+  };
 }
 
 const ACTION_TYPE_LABELS: Record<string, string> = {
@@ -53,39 +62,79 @@ const removeVietnameseDiacritics = (str: string): string => {
     .replace(/Đ/g, 'D');
 };
 
-export const exportActivityLogToPdf = ({ projectName, logs, dateFrom, dateTo }: ExportOptions) => {
+// UEH Logo as base64 (simplified text version for PDF)
+const addUEHHeader = (doc: jsPDF, pageWidth: number) => {
+  // Draw UEH text logo
+  doc.setFontSize(28);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...UEH_TEAL);
+  doc.text('UEH', 14, 18);
+  
+  // Draw UNIVERSITY text
+  doc.setFontSize(10);
+  doc.setTextColor(...UEH_ORANGE);
+  doc.text('UNIVERSITY', 14, 24);
+  
+  // Decorative line
+  doc.setDrawColor(...UEH_TEAL);
+  doc.setLineWidth(0.5);
+  doc.line(14, 28, pageWidth - 14, 28);
+  
+  // Orange accent line
+  doc.setDrawColor(...UEH_ORANGE);
+  doc.setLineWidth(2);
+  doc.line(14, 30, 50, 30);
+};
+
+export const exportActivityLogToPdf = ({ projectName, logs, dateFrom, dateTo, filters }: ExportOptions) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   
-  // Title
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  const title = removeVietnameseDiacritics(`Nhat ky hoat dong - ${projectName}`);
-  doc.text(title, pageWidth / 2, 20, { align: 'center' });
+  // Add UEH Header
+  addUEHHeader(doc, pageWidth);
   
-  // Date range info
-  doc.setFontSize(10);
+  // Title
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...UEH_TEAL);
+  const title = removeVietnameseDiacritics(`NHAT KY HOAT DONG`);
+  doc.text(title, pageWidth / 2, 42, { align: 'center' });
+  
+  // Project name
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  let dateRangeText = 'Tat ca thoi gian';
+  doc.setTextColor(60, 60, 60);
+  doc.text(removeVietnameseDiacritics(projectName), pageWidth / 2, 50, { align: 'center' });
+  
+  // Filter info box
+  let yPos = 58;
+  doc.setFillColor(245, 247, 250);
+  doc.roundedRect(14, yPos - 4, pageWidth - 28, 20, 2, 2, 'F');
+  
+  doc.setFontSize(9);
+  doc.setTextColor(80, 80, 80);
+  
+  // Date range
+  let dateRangeText = 'Thoi gian: Tat ca';
   if (dateFrom && dateTo) {
-    dateRangeText = `Tu ${format(dateFrom, 'dd/MM/yyyy')} den ${format(dateTo, 'dd/MM/yyyy')}`;
+    dateRangeText = `Thoi gian: ${format(dateFrom, 'dd/MM/yyyy')} - ${format(dateTo, 'dd/MM/yyyy')}`;
   } else if (dateFrom) {
-    dateRangeText = `Tu ${format(dateFrom, 'dd/MM/yyyy')}`;
+    dateRangeText = `Thoi gian: Tu ${format(dateFrom, 'dd/MM/yyyy')}`;
   } else if (dateTo) {
-    dateRangeText = `Den ${format(dateTo, 'dd/MM/yyyy')}`;
+    dateRangeText = `Thoi gian: Den ${format(dateTo, 'dd/MM/yyyy')}`;
   }
-  doc.text(dateRangeText, pageWidth / 2, 28, { align: 'center' });
+  doc.text(dateRangeText, 18, yPos + 3);
+  
+  // Total records
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...UEH_TEAL);
+  doc.text(`Tong so: ${logs.length} hoat dong`, pageWidth - 18, yPos + 3, { align: 'right' });
   
   // Export timestamp
-  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
   doc.setTextColor(128, 128, 128);
-  doc.text(`Xuat luc: ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}`, pageWidth / 2, 34, { align: 'center' });
-  doc.setTextColor(0, 0, 0);
-  
-  // Summary
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Tong so hoat dong: ${logs.length}`, 14, 44);
+  doc.text(`Xuat luc: ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}`, 18, yPos + 11);
   
   // Table data
   const tableData = logs.map((log, index) => [
@@ -98,42 +147,70 @@ export const exportActivityLogToPdf = ({ projectName, logs, dateFrom, dateTo }: 
     removeVietnameseDiacritics(log.description || '-'),
   ]);
   
-  // Generate table
+  // Generate table with UEH colors
   autoTable(doc, {
     head: [['STT', 'Ngay', 'Gio', 'Nguoi thuc hien', 'Loai', 'Hanh dong', 'Mo ta']],
     body: tableData,
-    startY: 50,
+    startY: yPos + 18,
     styles: {
       fontSize: 8,
       cellPadding: 2,
+      textColor: [50, 50, 50],
     },
     headStyles: {
-      fillColor: [59, 130, 246],
+      fillColor: UEH_TEAL,
       textColor: 255,
       fontStyle: 'bold',
+      halign: 'center',
     },
     columnStyles: {
       0: { cellWidth: 12, halign: 'center' },
-      1: { cellWidth: 22 },
-      2: { cellWidth: 18 },
+      1: { cellWidth: 22, halign: 'center' },
+      2: { cellWidth: 18, halign: 'center' },
       3: { cellWidth: 30 },
-      4: { cellWidth: 22 },
+      4: { cellWidth: 22, halign: 'center' },
       5: { cellWidth: 30 },
       6: { cellWidth: 'auto' },
     },
     alternateRowStyles: {
-      fillColor: [245, 247, 250],
+      fillColor: UEH_TEAL_LIGHT,
     },
     didDrawPage: (data) => {
-      // Footer with page number
       const pageCount = doc.getNumberOfPages();
+      const currentPage = data.pageNumber;
+      
+      // Footer line
+      doc.setDrawColor(...UEH_TEAL);
+      doc.setLineWidth(0.3);
+      doc.line(14, doc.internal.pageSize.getHeight() - 15, pageWidth - 14, doc.internal.pageSize.getHeight() - 15);
+      
+      // Footer with page number and UEH branding
       doc.setFontSize(8);
+      doc.setTextColor(...UEH_TEAL);
+      doc.setFont('helvetica', 'bold');
+      doc.text('UEH', 14, doc.internal.pageSize.getHeight() - 8);
+      
+      doc.setTextColor(...UEH_ORANGE);
+      doc.setFontSize(6);
+      doc.text('UNIVERSITY', 24, doc.internal.pageSize.getHeight() - 8);
+      
+      // Page number
       doc.setTextColor(128, 128, 128);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
       doc.text(
-        `Trang ${data.pageNumber} / ${pageCount}`,
+        `Trang ${currentPage} / ${pageCount}`,
         pageWidth / 2,
-        doc.internal.pageSize.getHeight() - 10,
+        doc.internal.pageSize.getHeight() - 8,
         { align: 'center' }
+      );
+      
+      // Timestamp on right
+      doc.text(
+        format(new Date(), 'dd/MM/yyyy'),
+        pageWidth - 14,
+        doc.internal.pageSize.getHeight() - 8,
+        { align: 'right' }
       );
     },
   });
