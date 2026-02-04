@@ -397,7 +397,7 @@ export default function GroupDetail() {
                       }
                     }}>
                       <DialogTrigger asChild><Button size="sm"><Plus className="w-4 h-4 mr-2" />Tạo task</Button></DialogTrigger>
-                        <DialogContent className="max-w-[95vw] w-[900px] max-h-[85vh] p-0 overflow-hidden flex flex-col">
+                        <DialogContent className="max-w-[95vw] w-[1280px] h-[720px] max-h-[90vh] p-0 overflow-hidden flex flex-col">
                         {/* Header */}
                         <DialogHeader className="px-4 py-2 border-b bg-muted/30 shrink-0">
                           <div className="flex items-center gap-2">
