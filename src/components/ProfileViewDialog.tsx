@@ -41,7 +41,7 @@ export default function ProfileViewDialog({
       case 'admin':
         return <Badge className="bg-destructive/10 text-destructive gap-1"><Shield className="w-3 h-3" />Admin</Badge>;
       case 'leader':
-        return <Badge className="bg-warning/10 text-warning gap-1"><Crown className="w-3 h-3" />Phó nhóm</Badge>;
+        return <Badge className="bg-primary/10 text-primary gap-1"><Crown className="w-3 h-3" />Phó nhóm</Badge>;
       default:
         return <Badge variant="secondary" className="gap-1"><UserCheck className="w-3 h-3" />Thành viên</Badge>;
     }

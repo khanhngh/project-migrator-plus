@@ -110,12 +110,19 @@ export default function MemberManagementCard({
   const [profileViewRole, setProfileViewRole] = useState<'admin' | 'leader' | 'member'>('member');
   const [profileViewIsCreator, setProfileViewIsCreator] = useState(false);
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadge = (role: string, memberId?: string) => {
+    // Check if this member is the group creator (Trưởng nhóm)
+    const isCreator = memberId ? memberId === groupCreatorId : false;
+    
+    if (isCreator) {
+      return <Badge className="bg-warning/10 text-warning text-xs gap-1"><Crown className="w-3 h-3" />Trưởng nhóm</Badge>;
+    }
+    
     switch (role) {
       case 'admin':
         return <Badge className="bg-destructive/10 text-destructive text-xs gap-1"><Shield className="w-3 h-3" />Admin</Badge>;
       case 'leader':
-        return <Badge className="bg-warning/10 text-warning text-xs gap-1"><Crown className="w-3 h-3" />Phó nhóm</Badge>;
+        return <Badge className="bg-primary/10 text-primary text-xs gap-1"><Crown className="w-3 h-3" />Phó nhóm</Badge>;
       default:
         return <Badge variant="secondary" className="text-xs gap-1"><UserCheck className="w-3 h-3" />Thành viên</Badge>;
     }
@@ -451,7 +458,7 @@ export default function MemberManagementCard({
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  {getRoleBadge(member.role)}
+                  {getRoleBadge(member.role, member.user_id)}
                   
                   {(canChangeRole(member) || canDeleteMember(member)) && (
                     <DropdownMenu>
