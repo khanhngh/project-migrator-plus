@@ -172,21 +172,21 @@ export default function TaskScoringDialog({
           .eq('id', edit.scoreId);
 
         // Log history
-        await supabase.from('score_adjustment_history').insert({
+        await supabase.from('score_adjustment_history').insert([{
           adjustment_type: 'task',
-          task_score_id: edit.scoreId,
+          target_id: edit.scoreId,
           user_id: edit.userId,
           previous_score: previousScore,
           new_score: newScore,
-          adjustment: edit.adjustment,
+          adjustment_value: edit.adjustment,
           reason: edit.reason || 'Chấm điểm task',
           adjusted_by: user.id,
-        });
+        }]);
       } else {
         // Create new score
         const { data: newScoreData, error } = await supabase
           .from('task_scores')
-          .insert({
+          .insert([{
             task_id: task.id,
             user_id: edit.userId,
             base_score: 100,
@@ -195,23 +195,23 @@ export default function TaskScoringDialog({
             adjusted_by: user.id,
             adjusted_at: new Date().toISOString(),
             final_score: newScore,
-          })
+          }])
           .select()
           .single();
 
         if (error) throw error;
 
         // Log history
-        await supabase.from('score_adjustment_history').insert({
+        await supabase.from('score_adjustment_history').insert([{
           adjustment_type: 'task',
-          task_score_id: newScoreData.id,
+          target_id: newScoreData.id,
           user_id: edit.userId,
           previous_score: 100,
           new_score: newScore,
-          adjustment: edit.adjustment,
+          adjustment_value: edit.adjustment,
           reason: edit.reason || 'Chấm điểm task',
           adjusted_by: user.id,
-        });
+        }]);
       }
 
       toast({ title: 'Đã lưu điểm' });
@@ -251,20 +251,20 @@ export default function TaskScoringDialog({
             })
             .eq('id', existingScore.id);
 
-          await supabase.from('score_adjustment_history').insert({
+          await supabase.from('score_adjustment_history').insert([{
             adjustment_type: 'task',
-            task_score_id: existingScore.id,
+            target_id: existingScore.id,
             user_id: member.user_id,
             previous_score: previousScore,
             new_score: newScore,
-            adjustment: groupAdjustment,
+            adjustment_value: groupAdjustment,
             reason: groupReason || 'Chấm điểm task (nhóm)',
             adjusted_by: user.id,
-          });
+          }]);
         } else {
           const { data: newScoreData, error } = await supabase
             .from('task_scores')
-            .insert({
+            .insert([{
               task_id: task.id,
               user_id: member.user_id,
               base_score: 100,
@@ -273,21 +273,21 @@ export default function TaskScoringDialog({
               adjusted_by: user.id,
               adjusted_at: new Date().toISOString(),
               final_score: newScore,
-            })
+            }])
             .select()
             .single();
 
           if (!error && newScoreData) {
-            await supabase.from('score_adjustment_history').insert({
+            await supabase.from('score_adjustment_history').insert([{
               adjustment_type: 'task',
-              task_score_id: newScoreData.id,
+              target_id: newScoreData.id,
               user_id: member.user_id,
               previous_score: 100,
               new_score: newScore,
-              adjustment: groupAdjustment,
+              adjustment_value: groupAdjustment,
               reason: groupReason || 'Chấm điểm task (nhóm)',
               adjusted_by: user.id,
-            });
+            }]);
           }
         }
       }

@@ -223,11 +223,12 @@ export default function FeedbackPage() {
 
     setIsCreating(true);
     try {
-      const { error } = await supabase.from('feedbacks').insert({
+      const { error } = await supabase.from('feedbacks').insert([{
         user_id: user!.id,
+        type: 'general',
         title: newTitle.trim(),
         content: newContent.trim(),
-      });
+      }]);
 
       if (error) throw error;
 

@@ -366,16 +366,16 @@ export default function ProcessScores({
           .eq('id', targetId);
 
         // Log history
-        await supabase.from('score_adjustment_history').insert({
+        await supabase.from('score_adjustment_history').insert([{
           adjustment_type: 'task',
-          task_score_id: targetId,
+          target_id: targetId,
           user_id: memberId,
           previous_score: previousScore,
           new_score: newScore,
-          adjustment,
+          adjustment_value: adjustment,
           reason,
-          adjusted_by: user?.id,
-        });
+          adjusted_by: user?.id || '',
+        }]);
 
       } else if (type === 'stage') {
         const existing = stageScores.find(ss => ss.id === targetId);
@@ -392,16 +392,16 @@ export default function ProcessScores({
           })
           .eq('id', targetId);
 
-        await supabase.from('score_adjustment_history').insert({
+        await supabase.from('score_adjustment_history').insert([{
           adjustment_type: 'stage',
-          stage_score_id: targetId,
+          target_id: targetId,
           user_id: memberId,
           previous_score: previousScore,
           new_score: newScore,
-          adjustment,
+          adjustment_value: adjustment,
           reason,
-          adjusted_by: user?.id,
-        });
+          adjusted_by: user?.id || '',
+        }]);
 
       } else if (type === 'final') {
         const existing = finalScores.find(fs => fs.id === targetId);
@@ -418,16 +418,16 @@ export default function ProcessScores({
           })
           .eq('id', targetId);
 
-        await supabase.from('score_adjustment_history').insert({
+        await supabase.from('score_adjustment_history').insert([{
           adjustment_type: 'final',
-          final_score_id: targetId,
+          target_id: targetId,
           user_id: memberId,
           previous_score: previousScore,
           new_score: newScore,
-          adjustment,
+          adjustment_value: adjustment,
           reason,
-          adjusted_by: user?.id,
-        });
+          adjusted_by: user?.id || '',
+        }]);
       }
 
       toast({ title: 'Thành công', description: 'Đã điều chỉnh điểm' });
@@ -449,14 +449,12 @@ export default function ProcessScores({
       // Create appeal
       const { data: appealData, error: appealError } = await supabase
         .from('score_appeals')
-        .insert({
-          user_id: user?.id,
-          appeal_type: appealDialog.type,
+        .insert([{
+          user_id: user?.id || '',
           task_score_id: appealDialog.type === 'task' ? appealDialog.scoreId : null,
           stage_score_id: appealDialog.type === 'stage' ? appealDialog.scoreId : null,
-          final_score_id: appealDialog.type === 'final' ? appealDialog.scoreId : null,
-          content,
-        })
+          reason: content,
+        }])
         .select()
         .single();
 
@@ -470,13 +468,13 @@ export default function ProcessScores({
           .upload(filePath, file);
 
         if (!uploadError) {
-          await supabase.from('appeal_attachments').insert({
+          await supabase.from('appeal_attachments').insert([{
             appeal_id: appealData.id,
             file_name: file.name,
             file_path: filePath,
             file_size: file.size,
-            file_type: file.type,
-          });
+            storage_name: filePath,
+          }]);
         }
       }
 
@@ -529,10 +527,11 @@ export default function ProcessScores({
             .update({ weight })
             .eq('id', existing.id);
         } else {
-          await supabase.from('stage_weights').insert({
+          await supabase.from('stage_weights').insert([{
+            group_id: groupId,
             stage_id: stageId,
             weight,
-          });
+          }]);
         }
       }
       toast({ title: 'Thành công', description: 'Đã lưu trọng số giai đoạn' });
