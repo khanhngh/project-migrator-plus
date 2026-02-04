@@ -1,9 +1,34 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Users } from 'lucide-react';
+import { ArrowRight, Users, Shield, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import uehLogo from '@/assets/ueh-logo-new.png';
 
 export default function Landing() {
+  const [isInitializing, setIsInitializing] = useState(false);
+
+  const handleInitAdmin = async () => {
+    setIsInitializing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ensure-admin');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success(data.message || 'Khởi tạo admin thành công!');
+      } else {
+        toast.error(data?.error || 'Có lỗi xảy ra');
+      }
+    } catch (error: any) {
+      console.error('Error initializing admin:', error);
+      toast.error('Lỗi kết nối: ' + (error.message || 'Không thể khởi tạo admin'));
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header trên - navbar */}
@@ -19,7 +44,24 @@ export default function Landing() {
             <div className="hidden sm:block h-8 w-px bg-primary-foreground/30" />
             <span className="hidden sm:block font-heading font-semibold text-lg">Teamworks UEH</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Nút khởi tạo admin - nhỏ gọn */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleInitAdmin}
+              disabled={isInitializing}
+              className="text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10 text-xs gap-1 h-8 px-2"
+              title="Khởi tạo tài khoản Admin"
+            >
+              {isInitializing ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Shield className="w-3 h-3" />
+              )}
+              <span className="hidden sm:inline">Init</span>
+            </Button>
+            
             <Link to="/auth">
               <Button variant="secondary" className="font-medium">
                 Đăng nhập
