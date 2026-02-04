@@ -113,7 +113,7 @@ export function MemberAuthForm() {
       <div className="mb-6 flex flex-col items-center gap-2">
         <UEHLogo width={100} />
         <span className="font-heading font-semibold text-primary flex items-center gap-1">
-          <Users className="w-4 h-4" /> TaskFlow UEH - Thành viên
+          <Users className="w-4 h-4" /> Teamworks UEH - Thành viên
         </span>
       </div>
       <Card className="w-full shadow-card-lg border-border/50">

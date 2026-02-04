@@ -17,7 +17,7 @@ export default function Landing() {
               loading="lazy"
             />
             <div className="hidden sm:block h-8 w-px bg-primary-foreground/30" />
-            <span className="hidden sm:block font-heading font-semibold text-lg">TaskFlow UEH</span>
+            <span className="hidden sm:block font-heading font-semibold text-lg">Teamworks UEH</span>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/auth">
@@ -109,11 +109,11 @@ export default function Landing() {
                 loading="lazy"
               />
               <span className="text-xs md:text-sm">
-                © 2025 TaskFlow UEH &mdash; Hệ thống quản lý công việc nhóm cho sinh viên UEH.
+                © 2025 Teamworks UEH &mdash; Hệ thống quản lý công việc nhóm cho sinh viên UEH.
               </span>
             </div>
             <p className="text-xs md:text-sm text-primary-foreground/90 text-center md:text-right max-w-md">
-              TaskFlow hỗ trợ chia task, theo dõi tiến độ, tính điểm từng thành viên và tổng kết theo giai đoạn,
+              Teamworks hỗ trợ chia task, theo dõi tiến độ, tính điểm từng thành viên và tổng kết theo giai đoạn,
               giúp giảng viên và sinh viên đánh giá công bằng, minh bạch.
             </p>
           </div>
