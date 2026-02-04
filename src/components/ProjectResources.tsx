@@ -172,6 +172,11 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
   const [deleteResource, setDeleteResource] = useState<ProjectResource | null>(null);
   const [deleteFolder, setDeleteFolder] = useState<ResourceFolder | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Rename file dialog
+  const [renameResource, setRenameResource] = useState<ProjectResource | null>(null);
+  const [newFileName, setNewFileName] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
 
   useEffect(() => {
     fetchResources();
@@ -406,6 +411,34 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
     }
   };
 
+  const handleRenameFile = async () => {
+    if (!renameResource || !newFileName.trim()) return;
+    
+    setIsRenaming(true);
+    try {
+      // Keep the original extension
+      const originalExt = renameResource.name.split('.').pop();
+      const newNameWithoutExt = newFileName.trim().replace(/\.[^/.]+$/, ''); // Remove any extension user might have typed
+      const finalName = originalExt ? `${newNameWithoutExt}.${originalExt}` : newNameWithoutExt;
+      
+      const { error } = await supabase
+        .from('project_resources')
+        .update({ name: finalName })
+        .eq('id', renameResource.id);
+      
+      if (error) throw error;
+      
+      toast({ title: 'Thành công', description: 'Đã đổi tên file' });
+      setRenameResource(null);
+      setNewFileName('');
+      fetchResources();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
   const handlePreview = (resource: ProjectResource) => {
     const params = new URLSearchParams();
     params.set('url', resource.file_path);
@@ -513,15 +546,31 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
                 <Download className="w-4 h-4" />
               </Button>
               {isLeader && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={(e) => { e.stopPropagation(); setDeleteResource(resource); }}
-                  title="Xóa"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      const nameWithoutExt = resource.name.substring(0, resource.name.lastIndexOf('.')) || resource.name;
+                      setNewFileName(nameWithoutExt);
+                      setRenameResource(resource); 
+                    }}
+                    title="Đổi tên"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); setDeleteResource(resource); }}
+                    title="Xóa"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -938,6 +987,57 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rename File Dialog */}
+      <Dialog open={!!renameResource} onOpenChange={() => setRenameResource(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-primary" />
+              Đổi tên file
+            </DialogTitle>
+            <DialogDescription>
+              Nhập tên mới cho file (phần mở rộng sẽ được giữ nguyên)
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Tên file mới</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newFileName}
+                  onChange={(e) => setNewFileName(e.target.value)}
+                  placeholder="Nhập tên file..."
+                  onKeyDown={(e) => e.key === 'Enter' && handleRenameFile()}
+                  autoFocus
+                />
+                <span className="text-sm text-muted-foreground shrink-0">
+                  .{renameResource?.name.split('.').pop()}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRenameResource(null)}>
+              Hủy
+            </Button>
+            <Button 
+              onClick={handleRenameFile} 
+              disabled={isRenaming || !newFileName.trim()}
+              className="gap-2"
+            >
+              {isRenaming ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Pencil className="w-4 h-4" />
+              )}
+              Đổi tên
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
