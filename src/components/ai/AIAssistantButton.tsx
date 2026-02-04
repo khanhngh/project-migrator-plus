@@ -75,17 +75,18 @@ export default function AIAssistantButton({ projectId, projectName, zaloLink }: 
 
   return (
     <>
-      {/* Tooltip Bubble - positioned to not cover main content */}
+      {/* Tooltip Bubble - positioned above all buttons */}
       <div 
         className={cn(
-          "fixed bottom-28 right-6 z-40",
+          "fixed right-6 z-[60]",
           "bg-card/95 backdrop-blur-sm border border-border/80 rounded-2xl shadow-lg",
           "px-4 py-2.5 max-w-[220px]",
           "transition-all duration-300 ease-out",
           "before:content-[''] before:absolute before:bottom-[-6px] before:right-10",
           "before:w-3 before:h-3 before:bg-card/95 before:border-r before:border-b before:border-border/80",
           "before:rotate-45 before:rounded-sm",
-          zaloLink ? "bottom-36" : "bottom-28",
+          // Position higher when Zalo button exists (AI 80px + gap 12px + Zalo 48px + gap 16px = ~156px from bottom)
+          zaloLink ? "bottom-44" : "bottom-32",
           showTooltip && !isOpen
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 translate-y-2 pointer-events-none"
