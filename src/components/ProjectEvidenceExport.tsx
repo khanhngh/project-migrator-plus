@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { FileText, Download, Loader2, Users, ListTodo, Award, FolderOpen, History } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { FileText, Download, Loader2, ChevronDown, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { exportProjectEvidencePdf, ExportData, ExportOptions } from '@/lib/projectEvidencePdf';
@@ -20,7 +21,9 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   
+  // Default: export all
   const [options, setOptions] = useState<ExportOptions>({
     includeMembers: true,
     includeTasks: true,
@@ -31,6 +34,26 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
 
   const handleOptionChange = (key: keyof ExportOptions) => {
     setOptions(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const selectAll = () => {
+    setOptions({
+      includeMembers: true,
+      includeTasks: true,
+      includeScores: true,
+      includeResources: true,
+      includeLogs: true,
+    });
+  };
+
+  const deselectAll = () => {
+    setOptions({
+      includeMembers: false,
+      includeTasks: false,
+      includeScores: false,
+      includeResources: false,
+      includeLogs: false,
+    });
   };
 
   const handleExport = async () => {
@@ -50,7 +73,7 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
 
     try {
       // Fetch all data in parallel
-      setProgressMessage('Đang tải dữ liệu...');
+      setProgressMessage('Đang tải dữ liệu cơ bản...');
       setProgress(10);
 
       const [
@@ -63,7 +86,7 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
         supabase.from('tasks').select('*').eq('group_id', groupId).order('created_at', { ascending: false }),
       ]);
 
-      setProgress(30);
+      setProgress(25);
 
       // Fetch profiles for members
       let members: GroupMember[] = [];
@@ -74,7 +97,7 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
         members = membersData.map(m => ({ ...m, profiles: profilesMap.get(m.user_id) })) as GroupMember[];
       }
 
-      setProgress(40);
+      setProgress(35);
 
       // Fetch task assignments
       let tasks: Task[] = [];
@@ -90,13 +113,14 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
         })) as Task[];
       }
 
-      setProgress(50);
-      setProgressMessage('Đang tải điểm số...');
+      setProgress(45);
+      setProgressMessage('Đang tải điểm số chi tiết...');
 
       // Fetch scores
       let taskScores: any[] = [];
       let stageScores: any[] = [];
       let finalScores: any[] = [];
+      let scoreAppeals: any[] = [];
 
       if (options.includeScores) {
         const taskIds = tasks.map(t => t.id);
@@ -106,6 +130,7 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
           { data: taskScoresData },
           { data: stageScoresData },
           { data: finalScoresData },
+          { data: scoreAppealsData },
         ] = await Promise.all([
           taskIds.length > 0 
             ? supabase.from('task_scores').select('*').in('task_id', taskIds)
@@ -114,14 +139,23 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
             ? supabase.from('member_stage_scores').select('*').in('stage_id', stageIds)
             : Promise.resolve({ data: [] }),
           supabase.from('member_final_scores').select('*').eq('group_id', groupId),
+          supabase.from('score_appeals').select('*'),
         ]);
 
         taskScores = taskScoresData || [];
         stageScores = stageScoresData || [];
         finalScores = finalScoresData || [];
+        
+        // Filter appeals relevant to this project
+        const taskScoreIds = taskScores.map(ts => ts.id);
+        const stageScoreIds = stageScores.map(ss => ss.id);
+        scoreAppeals = (scoreAppealsData || []).filter(a => 
+          (a.task_score_id && taskScoreIds.includes(a.task_score_id)) ||
+          (a.stage_score_id && stageScoreIds.includes(a.stage_score_id))
+        );
       }
 
-      setProgress(70);
+      setProgress(60);
       setProgressMessage('Đang tải tài nguyên...');
 
       // Fetch resources
@@ -135,8 +169,8 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
         resources = resourcesData || [];
       }
 
-      setProgress(80);
-      setProgressMessage('Đang tải nhật ký...');
+      setProgress(75);
+      setProgressMessage('Đang tải nhật ký hoạt động...');
 
       // Fetch activity logs
       let activityLogs: any[] = [];
@@ -150,7 +184,7 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
         activityLogs = logsData || [];
       }
 
-      setProgress(90);
+      setProgress(85);
       setProgressMessage('Đang tạo PDF...');
 
       // Generate PDF
@@ -162,12 +196,13 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
         taskScores,
         stageScores,
         finalScores,
+        scoreAppeals,
         resources,
         activityLogs,
         options,
       };
 
-      const fileName = exportProjectEvidencePdf(exportData);
+      const fileName = await exportProjectEvidencePdf(exportData);
 
       setProgress(100);
       setProgressMessage('Hoàn tất!');
@@ -192,51 +227,76 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
   };
 
   const optionItems = [
-    { key: 'includeMembers' as const, label: 'Thông tin thành viên', icon: Users },
-    { key: 'includeTasks' as const, label: 'Chi tiết công việc (Tasks)', icon: ListTodo },
-    { key: 'includeScores' as const, label: 'Điểm quá trình', icon: Award },
-    { key: 'includeResources' as const, label: 'Tài nguyên dự án', icon: FolderOpen },
-    { key: 'includeLogs' as const, label: 'Nhật ký hoạt động', icon: History },
+    { key: 'includeMembers' as const, label: 'Thành viên' },
+    { key: 'includeTasks' as const, label: 'Công việc' },
+    { key: 'includeScores' as const, label: 'Điểm quá trình' },
+    { key: 'includeResources' as const, label: 'Tài nguyên' },
+    { key: 'includeLogs' as const, label: 'Nhật ký' },
   ];
+
+  const selectedCount = Object.values(options).filter(v => v).length;
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-primary">
-          <FileText className="w-5 h-5" />
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-primary text-base">
+          <FileText className="w-4 h-4" />
           Xuất Minh chứng
         </CardTitle>
-        <CardDescription>
-          Xuất toàn bộ dữ liệu dự án ra file PDF với thương hiệu UEH
+        <CardDescription className="text-xs">
+          Xuất báo cáo PDF đầy đủ với logo UEH và mục lục
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Options */}
-        <div className="space-y-3">
-          {optionItems.map(({ key, label, icon: Icon }) => (
-            <div key={key} className="flex items-center space-x-3">
-              <Checkbox
-                id={key}
-                checked={options[key]}
-                onCheckedChange={() => handleOptionChange(key)}
-                disabled={isExporting}
-              />
-              <Label
-                htmlFor={key}
-                className="flex items-center gap-2 text-sm font-normal cursor-pointer"
-              >
-                <Icon className="w-4 h-4 text-muted-foreground" />
-                {label}
-              </Label>
+      <CardContent className="space-y-3">
+        {/* Compact filter section */}
+        <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full justify-between text-xs h-8">
+              <span className="flex items-center gap-1.5">
+                <Filter className="w-3 h-3" />
+                Lọc nội dung ({selectedCount}/5)
+              </span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            <div className="space-y-2 p-2 bg-muted/50 rounded-md">
+              <div className="flex gap-2 mb-2">
+                <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={selectAll}>
+                  Chọn tất cả
+                </Button>
+                <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={deselectAll}>
+                  Bỏ chọn
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {optionItems.map(({ key, label }) => (
+                  <div key={key} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={key}
+                      checked={options[key]}
+                      onCheckedChange={() => handleOptionChange(key)}
+                      disabled={isExporting}
+                      className="h-3.5 w-3.5"
+                    />
+                    <Label
+                      htmlFor={key}
+                      className="text-xs font-normal cursor-pointer"
+                    >
+                      {label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Progress bar */}
         {isExporting && (
-          <div className="space-y-2">
-            <Progress value={progress} className="h-2" />
-            <p className="text-sm text-muted-foreground text-center">
+          <div className="space-y-1.5">
+            <Progress value={progress} className="h-1.5" />
+            <p className="text-xs text-muted-foreground text-center">
               {progressMessage}
             </p>
           </div>
@@ -246,17 +306,18 @@ export default function ProjectEvidenceExport({ groupId, project }: ProjectEvide
         <Button
           onClick={handleExport}
           disabled={isExporting}
-          className="w-full bg-primary hover:bg-primary/90"
+          className="w-full bg-primary hover:bg-primary/90 h-9"
+          size="sm"
         >
           {isExporting ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
               Đang xuất...
             </>
           ) : (
             <>
-              <Download className="w-4 h-4 mr-2" />
-              Xuất PDF
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+              Xuất toàn bộ PDF
             </>
           )}
         </Button>
