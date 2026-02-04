@@ -96,15 +96,15 @@ const removeVietnameseDiacritics = (str: string): string => {
 };
 
 // Add UEH Header with actual logo
-const addUEHHeader = async (doc: jsPDF, pageWidth: number) => {
+const addUEHHeader = async (doc: jsPDF, pageWidth: number): Promise<number> => {
   try {
     const logo = await loadImageAsBase64(uehLogoUrl);
-    const logoWidth = 50;
+    const logoWidth = 45;
     const logoHeight = logoWidth * (logo.height / logo.width); // Keep aspect ratio
-    doc.addImage(logo.dataUrl, 'PNG', 14, 10, logoWidth, logoHeight);
+    doc.addImage(logo.dataUrl, 'PNG', 14, 8, logoWidth, logoHeight);
     
     // Decorative line below logo
-    const lineY = 12 + logoHeight + 4;
+    const lineY = 10 + logoHeight + 2;
     doc.setDrawColor(...UEH_TEAL);
     doc.setLineWidth(0.5);
     doc.line(14, lineY, pageWidth - 14, lineY);
@@ -112,26 +112,30 @@ const addUEHHeader = async (doc: jsPDF, pageWidth: number) => {
     // Orange accent line
     doc.setDrawColor(...UEH_ORANGE);
     doc.setLineWidth(2);
-    doc.line(14, lineY + 2, 50, lineY + 2);
+    doc.line(14, lineY + 2, 45, lineY + 2);
+    
+    return lineY + 6; // Return Y position after header
   } catch (error) {
     console.error('Failed to load UEH logo, using text fallback:', error);
     // Fallback to text if image fails
-    doc.setFontSize(28);
+    doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...UEH_TEAL);
-    doc.text('UEH', 14, 18);
+    doc.text('UEH', 14, 16);
     
-    doc.setFontSize(10);
+    doc.setFontSize(8);
     doc.setTextColor(...UEH_ORANGE);
-    doc.text('UNIVERSITY', 14, 24);
+    doc.text('UNIVERSITY', 14, 21);
     
     doc.setDrawColor(...UEH_TEAL);
     doc.setLineWidth(0.5);
-    doc.line(14, 28, pageWidth - 14, 28);
+    doc.line(14, 24, pageWidth - 14, 24);
     
     doc.setDrawColor(...UEH_ORANGE);
     doc.setLineWidth(2);
-    doc.line(14, 30, 50, 30);
+    doc.line(14, 26, 45, 26);
+    
+    return 30; // Return Y position after header
   }
 };
 
@@ -139,24 +143,26 @@ export const exportActivityLogToPdf = async ({ projectName, logs, dateFrom, date
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   
-  // Add UEH Header (async for loading logo)
-  await addUEHHeader(doc, pageWidth);
+  // Add UEH Header (async for loading logo) - returns Y position after header
+  const headerEndY = await addUEHHeader(doc, pageWidth);
   
-  // Title - positioned lower to accommodate logo
+  // Title - positioned dynamically based on header
+  const titleY = headerEndY + 8;
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...UEH_TEAL);
   const title = removeVietnameseDiacritics(`NHAT KY HOAT DONG`);
-  doc.text(title, pageWidth / 2, 48, { align: 'center' });
+  doc.text(title, pageWidth / 2, titleY, { align: 'center' });
   
   // Project name
+  const projectNameY = titleY + 8;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(60, 60, 60);
-  doc.text(removeVietnameseDiacritics(projectName), pageWidth / 2, 56, { align: 'center' });
+  doc.text(removeVietnameseDiacritics(projectName), pageWidth / 2, projectNameY, { align: 'center' });
   
   // Filter info box
-  let yPos = 64;
+  let yPos = projectNameY + 8;
   doc.setFillColor(245, 247, 250);
   doc.roundedRect(14, yPos - 4, pageWidth - 28, 20, 2, 2, 'F');
   
