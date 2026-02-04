@@ -80,33 +80,111 @@ export default function ResourceLinkRenderer({ content, className }: ResourceLin
   
   if (!content) return null;
   
-  // Regex to match [#filename](url) pattern
-  const resourceLinkPattern = /\[#([^\]]+)\]\(([^)]+)\)/g;
+  // Multiple patterns to match:
+  // 1. [#filename](url) - markdown style
+  // 2. (url) - parenthesized URL
+  // 3. Raw supabase storage URLs
   
+  const patterns = [
+    // Pattern 1: [#filename](url)
+    { regex: /\[#([^\]]+)\]\(([^)]+)\)/g, type: 'markdown' as const },
+    // Pattern 2: Standalone (https://...supabase...storage...) - parenthesized URLs
+    { regex: /\((https:\/\/[^)]*supabase[^)]*\/storage\/[^)]+)\)/g, type: 'paren_url' as const },
+    // Pattern 3: Raw supabase storage URLs (not in markdown or parens)
+    { regex: /(?<![(\[])(https:\/\/[^\s]*supabase[^\s]*\/storage\/v1\/object\/[^\s\])]+)/g, type: 'raw_url' as const },
+  ];
+  
+  // First, find all matches with their positions
+  interface MatchInfo {
+    start: number;
+    end: number;
+    type: 'markdown' | 'paren_url' | 'raw_url';
+    fileName: string;
+    url: string;
+  }
+  
+  const allMatches: MatchInfo[] = [];
+  
+  // Find markdown style matches first (highest priority)
+  const markdownRegex = /\[#([^\]]+)\]\(([^)]+)\)/g;
+  let match;
+  while ((match = markdownRegex.exec(content)) !== null) {
+    allMatches.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      type: 'markdown',
+      fileName: match[1],
+      url: match[2]
+    });
+  }
+  
+  // Find parenthesized URLs
+  const parenUrlRegex = /\((https:\/\/[^)]*supabase[^)]*\/storage\/[^)]+)\)/g;
+  while ((match = parenUrlRegex.exec(content)) !== null) {
+    // Check if this overlaps with existing matches
+    const overlaps = allMatches.some(m => 
+      (match!.index >= m.start && match!.index < m.end) ||
+      (match!.index + match![0].length > m.start && match!.index + match![0].length <= m.end)
+    );
+    if (!overlaps) {
+      const url = match[1];
+      const fileName = extractFileNameFromUrl(url);
+      allMatches.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        type: 'paren_url',
+        fileName,
+        url
+      });
+    }
+  }
+  
+  // Find raw URLs
+  const rawUrlRegex = /(https:\/\/[^\s]*supabase[^\s]*\/storage\/v1\/object\/[^\s\])]+)/g;
+  while ((match = rawUrlRegex.exec(content)) !== null) {
+    // Check if this overlaps with existing matches
+    const overlaps = allMatches.some(m => 
+      (match!.index >= m.start && match!.index < m.end) ||
+      (match!.index + match![0].length > m.start && match!.index + match![0].length <= m.end)
+    );
+    if (!overlaps) {
+      const url = match[1];
+      const fileName = extractFileNameFromUrl(url);
+      allMatches.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        type: 'raw_url',
+        fileName,
+        url
+      });
+    }
+  }
+  
+  // Sort by position
+  allMatches.sort((a, b) => a.start - b.start);
+  
+  // Build parts
   const parts: (string | JSX.Element)[] = [];
   let lastIndex = 0;
-  let match;
-  let keyIndex = 0;
   
-  while ((match = resourceLinkPattern.exec(content)) !== null) {
+  allMatches.forEach((m, idx) => {
     // Add text before this match
-    if (match.index > lastIndex) {
-      parts.push(content.slice(lastIndex, match.index));
+    if (m.start > lastIndex) {
+      parts.push(content.slice(lastIndex, m.start));
     }
     
-    const [fullMatch, fileName, url] = match;
-    const cleanName = extractFileName(fileName);
+    const cleanName = extractFileName(m.fileName);
     
     // Add clickable chip
     parts.push(
       <button
-        key={`resource-${keyIndex++}`}
+        key={`resource-${idx}`}
         type="button"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
           const params = new URLSearchParams();
-          params.set('url', url);
+          params.set('url', m.url);
           params.set('name', cleanName);
           params.set('source', 'resource');
           navigate(`/file-preview?${params.toString()}`);
@@ -120,15 +198,15 @@ export default function ResourceLinkRenderer({ content, className }: ResourceLin
       </button>
     );
     
-    lastIndex = match.index + fullMatch.length;
-  }
+    lastIndex = m.end;
+  });
   
   // Add remaining text
   if (lastIndex < content.length) {
     parts.push(content.slice(lastIndex));
   }
   
-  // If no resource links found, just return plain text
+  // If no matches found, just return plain text
   if (parts.length === 0) {
     return <span className={className}>{content}</span>;
   }
@@ -140,4 +218,18 @@ export default function ResourceLinkRenderer({ content, className }: ResourceLin
       )}
     </span>
   );
+}
+
+// Extract filename from a storage URL
+function extractFileNameFromUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    const fileName = pathParts[pathParts.length - 1];
+    return decodeURIComponent(fileName);
+  } catch {
+    // Fallback: get last part after /
+    const parts = url.split('/');
+    return parts[parts.length - 1] || 'file';
+  }
 }
