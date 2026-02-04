@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,10 +15,12 @@ import {
   Upload, 
   File, 
   FileText, 
-  Image, 
+  Image as ImageIcon, 
   Video, 
   Music, 
   Archive,
+  FileSpreadsheet,
+  Presentation,
   Trash2, 
   Download, 
   Search, 
@@ -24,11 +28,13 @@ import {
   Plus,
   Loader2,
   Eye,
-  MoreVertical,
-  Filter
+  Filter,
+  Calendar,
+  User
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 interface ProjectResource {
   id: string;
@@ -54,21 +60,52 @@ interface ProjectResourcesProps {
 }
 
 const CATEGORIES = [
-  { value: 'general', label: 'Tài liệu chung', color: 'bg-blue-500/10 text-blue-600' },
-  { value: 'template', label: 'Mẫu/Template', color: 'bg-purple-500/10 text-purple-600' },
-  { value: 'reference', label: 'Tham khảo', color: 'bg-green-500/10 text-green-600' },
-  { value: 'guide', label: 'Hướng dẫn', color: 'bg-orange-500/10 text-orange-600' },
-  { value: 'plugin', label: 'Plugin/Công cụ', color: 'bg-pink-500/10 text-pink-600' },
+  { value: 'general', label: 'Tài liệu chung', color: 'bg-blue-500/10 text-blue-600 border-blue-200' },
+  { value: 'template', label: 'Mẫu/Template', color: 'bg-purple-500/10 text-purple-600 border-purple-200' },
+  { value: 'reference', label: 'Tham khảo', color: 'bg-green-500/10 text-green-600 border-green-200' },
+  { value: 'guide', label: 'Hướng dẫn', color: 'bg-orange-500/10 text-orange-600 border-orange-200' },
+  { value: 'plugin', label: 'Plugin/Công cụ', color: 'bg-pink-500/10 text-pink-600 border-pink-200' },
 ];
 
-function getFileIcon(fileType: string | null) {
-  if (!fileType) return File;
-  if (fileType.startsWith('image/')) return Image;
-  if (fileType.startsWith('video/')) return Video;
-  if (fileType.startsWith('audio/')) return Music;
-  if (fileType.includes('pdf') || fileType.includes('document') || fileType.includes('word')) return FileText;
-  if (fileType.includes('zip') || fileType.includes('rar') || fileType.includes('7z')) return Archive;
-  return File;
+function getFileIcon(fileName: string, size: 'sm' | 'md' = 'sm') {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  const iconClass = size === 'md' ? 'w-5 h-5' : 'w-4 h-4';
+  
+  switch (ext) {
+    case 'pdf':
+      return <FileText className={cn(iconClass, 'text-red-500')} />;
+    case 'doc':
+    case 'docx':
+      return <FileText className={cn(iconClass, 'text-blue-500')} />;
+    case 'xls':
+    case 'xlsx':
+    case 'csv':
+      return <FileSpreadsheet className={cn(iconClass, 'text-green-500')} />;
+    case 'ppt':
+    case 'pptx':
+      return <Presentation className={cn(iconClass, 'text-orange-500')} />;
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'webp':
+      return <ImageIcon className={cn(iconClass, 'text-purple-500')} />;
+    case 'mp4':
+    case 'webm':
+    case 'mov':
+    case 'avi':
+      return <Video className={cn(iconClass, 'text-pink-500')} />;
+    case 'mp3':
+    case 'wav':
+    case 'ogg':
+      return <Music className={cn(iconClass, 'text-cyan-500')} />;
+    case 'zip':
+    case 'rar':
+    case '7z':
+      return <Archive className={cn(iconClass, 'text-amber-500')} />;
+    default:
+      return <File className={cn(iconClass, 'text-muted-foreground')} />;
+  }
 }
 
 function formatFileSize(bytes: number): string {
@@ -81,6 +118,7 @@ function formatFileSize(bytes: number): string {
 
 export default function ProjectResources({ groupId, isLeader }: ProjectResourcesProps) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [resources, setResources] = useState<ProjectResource[]>([]);
@@ -91,6 +129,7 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
   // Upload dialog
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadCategory, setUploadCategory] = useState('general');
   const [uploadDescription, setUploadDescription] = useState('');
@@ -113,7 +152,6 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
       
       if (error) throw error;
       
-      // Fetch uploader profiles
       if (data && data.length > 0) {
         const uploaderIds = [...new Set(data.map(r => r.uploaded_by))];
         const { data: profiles } = await supabase
@@ -139,7 +177,6 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // 50MB limit
       if (file.size > 50 * 1024 * 1024) {
         toast({ title: 'Lỗi', description: 'File quá lớn. Giới hạn 50MB.', variant: 'destructive' });
         return;
@@ -153,27 +190,30 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
     if (!uploadFile) return;
     
     setIsUploading(true);
+    setUploadProgress(0);
+    
+    // Simulate progress
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => Math.min(prev + 10, 90));
+    }, 200);
+    
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Chưa đăng nhập');
 
-      // Generate unique storage name
       const fileExt = uploadFile.name.split('.').pop();
       const storageName = `${groupId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('project-resources')
         .upload(storageName, uploadFile);
       
       if (uploadError) throw uploadError;
       
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from('project-resources')
         .getPublicUrl(storageName);
       
-      // Insert metadata
       const { error: insertError } = await supabase
         .from('project_resources')
         .insert({
@@ -190,6 +230,9 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
       
       if (insertError) throw insertError;
       
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      
       toast({ title: 'Thành công', description: 'Đã tải lên tài nguyên' });
       setIsUploadOpen(false);
       setUploadFile(null);
@@ -198,9 +241,11 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
       if (fileInputRef.current) fileInputRef.current.value = '';
       fetchResources();
     } catch (error: any) {
+      clearInterval(progressInterval);
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -209,14 +254,10 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
     
     setIsDeleting(true);
     try {
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
+      await supabase.storage
         .from('project-resources')
         .remove([deleteResource.storage_name]);
       
-      if (storageError) console.warn('Storage delete warning:', storageError);
-      
-      // Delete metadata
       const { error: dbError } = await supabase
         .from('project_resources')
         .delete()
@@ -234,11 +275,19 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
     }
   };
 
+  const handlePreview = (resource: ProjectResource) => {
+    const params = new URLSearchParams();
+    params.set('url', resource.file_path);
+    params.set('name', resource.name);
+    params.set('size', resource.file_size.toString());
+    params.set('source', 'resource');
+    navigate(`/file-preview?${params.toString()}`);
+  };
+
   const handleDownload = (resource: ProjectResource) => {
     window.open(resource.file_path, '_blank');
   };
 
-  // Filter resources
   const filteredResources = resources.filter(r => {
     const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || r.category === selectedCategory;
@@ -254,17 +303,15 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold flex items-center gap-2">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
             <FolderOpen className="w-5 h-5 text-primary" />
             Tài nguyên dự án
+            <Badge variant="secondary" className="ml-2">{resources.length}</Badge>
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Quản lý tài liệu, mẫu và công cụ cho dự án
-          </p>
         </div>
         
         {isLeader && (
@@ -275,7 +322,7 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
               className="hidden"
               onChange={handleFileSelect}
             />
-            <Button onClick={() => fileInputRef.current?.click()}>
+            <Button size="sm" onClick={() => fileInputRef.current?.click()}>
               <Upload className="w-4 h-4 mr-2" />
               Tải lên
             </Button>
@@ -284,18 +331,18 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Tìm kiếm tài nguyên..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-9"
           />
         </div>
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-full sm:w-48">
+          <SelectTrigger className="w-full sm:w-44 h-9">
             <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
             <SelectValue placeholder="Phân loại" />
           </SelectTrigger>
@@ -308,7 +355,7 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
         </Select>
       </div>
 
-      {/* Resources Grid */}
+      {/* Resources List - Task-like style */}
       {filteredResources.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -326,65 +373,90 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
           </CardContent>
         </Card>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-2">
           {filteredResources.map(resource => {
-            const FileIcon = getFileIcon(resource.file_type);
             const category = CATEGORIES.find(c => c.value === resource.category);
             
             return (
-              <Card key={resource.id} className="group hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <FileIcon className="w-5 h-5 text-primary" />
+              <Card 
+                key={resource.id} 
+                className="group hover:shadow-md transition-all hover:border-primary/30 cursor-pointer"
+                onClick={() => handlePreview(resource)}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-3">
+                    {/* File Icon */}
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center shrink-0 border">
+                      {getFileIcon(resource.name, 'md')}
                     </div>
+                    
+                    {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm truncate" title={resource.name}>
-                        {resource.name}
-                      </h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-muted-foreground">
-                          {formatFileSize(resource.file_size)}
-                        </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-medium text-sm truncate max-w-[200px] sm:max-w-none" title={resource.name}>
+                          {resource.name}
+                        </h4>
                         {category && (
-                          <Badge variant="secondary" className={cn("text-[10px] px-1.5 py-0", category.color)}>
+                          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 shrink-0", category.color)}>
                             {category.label}
                           </Badge>
                         )}
                       </div>
+                      
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <File className="w-3 h-3" />
+                          {formatFileSize(resource.file_size)}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {format(new Date(resource.created_at), 'dd/MM/yyyy', { locale: vi })}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {resource.profiles?.full_name || 'Unknown'}
+                        </span>
+                      </div>
+                      
                       {resource.description && (
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
                           {resource.description}
                         </p>
                       )}
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <MoreVertical className="w-4 h-4" />
+                    
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => { e.stopPropagation(); handlePreview(resource); }}
+                        title="Xem trước"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => { e.stopPropagation(); handleDownload(resource); }}
+                        title="Tải xuống"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                      {isLeader && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); setDeleteResource(resource); }}
+                          title="Xóa"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleDownload(resource)}>
-                          <Eye className="w-4 h-4 mr-2" />
-                          Xem/Tải xuống
-                        </DropdownMenuItem>
-                        {isLeader && (
-                          <DropdownMenuItem 
-                            onClick={() => setDeleteResource(resource)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Xóa
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t">
-                    <span className="text-xs text-muted-foreground">
-                      Tải lên bởi {resource.profiles?.full_name || 'Unknown'}
-                    </span>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -393,63 +465,98 @@ export default function ProjectResources({ groupId, isLeader }: ProjectResources
         </div>
       )}
 
-      {/* Upload Dialog */}
+      {/* Upload Dialog - 16:9 ratio (1280x720) */}
       <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Tải lên tài nguyên</DialogTitle>
-            <DialogDescription>
-              Thêm tài liệu, mẫu hoặc công cụ vào dự án
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {uploadFile && (
-              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                <File className="w-8 h-8 text-primary" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{uploadFile.name}</p>
-                  <p className="text-xs text-muted-foreground">{formatFileSize(uploadFile.size)}</p>
+        <DialogContent className="max-w-[720px] w-[95vw] max-h-[90vh] p-0 overflow-hidden" style={{ aspectRatio: '16/9' }}>
+          <div className="flex flex-col h-full">
+            {/* Header */}
+            <DialogHeader className="px-5 py-4 border-b bg-gradient-to-r from-primary/10 via-primary/5 to-transparent shrink-0">
+              <DialogTitle className="flex items-center gap-2 text-lg">
+                <Upload className="w-5 h-5 text-primary" />
+                Tải lên tài nguyên
+              </DialogTitle>
+              <DialogDescription>
+                Thêm tài liệu, mẫu hoặc công cụ vào dự án
+              </DialogDescription>
+            </DialogHeader>
+            
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* File Preview */}
+              {uploadFile && (
+                <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-muted/50 to-muted/30 rounded-lg border">
+                  <div className="w-14 h-14 rounded-lg bg-background flex items-center justify-center border shadow-sm">
+                    {getFileIcon(uploadFile.name, 'md')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{uploadFile.name}</p>
+                    <p className="text-sm text-muted-foreground">{formatFileSize(uploadFile.size)}</p>
+                  </div>
                 </div>
-              </div>
-            )}
-            
-            <div className="space-y-2">
-              <Label>Phân loại</Label>
-              <Select value={uploadCategory} onValueChange={setUploadCategory}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map(cat => (
-                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Mô tả (tùy chọn)</Label>
-              <Input
-                value={uploadDescription}
-                onChange={(e) => setUploadDescription(e.target.value)}
-                placeholder="Mô tả ngắn về tài nguyên..."
-              />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsUploadOpen(false)}>
-              Hủy
-            </Button>
-            <Button onClick={handleUpload} disabled={isUploading || !uploadFile}>
-              {isUploading ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Đang tải...</>
-              ) : (
-                <><Upload className="w-4 h-4 mr-2" />Tải lên</>
               )}
-            </Button>
-          </DialogFooter>
+              
+              {/* Category Select */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Phân loại</Label>
+                <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map(cat => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={cn("text-[10px]", cat.color)}>
+                            {cat.label}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Description */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Mô tả (tùy chọn)</Label>
+                <Input
+                  value={uploadDescription}
+                  onChange={(e) => setUploadDescription(e.target.value)}
+                  placeholder="Mô tả ngắn về tài nguyên..."
+                  className="h-10"
+                />
+              </div>
+              
+              {/* Upload Progress */}
+              {isUploading && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Đang tải lên...</span>
+                    <span className="font-medium">{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <DialogFooter className="px-5 py-3 border-t bg-gradient-to-r from-muted/50 to-muted/30 gap-3 shrink-0">
+              <Button variant="outline" onClick={() => setIsUploadOpen(false)} className="h-10 min-w-24">
+                Hủy
+              </Button>
+              <Button 
+                onClick={handleUpload} 
+                disabled={isUploading || !uploadFile}
+                className="h-10 min-w-32 gap-2"
+              >
+                {isUploading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" />Đang tải...</>
+                ) : (
+                  <><Upload className="w-4 h-4" />Tải lên</>
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
