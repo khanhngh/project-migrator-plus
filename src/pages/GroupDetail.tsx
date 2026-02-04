@@ -30,6 +30,7 @@ import { Plus, Users, Loader2, ArrowLeft, Layers, Trash2, FileText, Calendar } f
 import ProjectNavigation from '@/components/ProjectNavigation';
 import ProcessScores from '@/components/scores/ProcessScores';
 import ProjectResources from '@/components/ProjectResources';
+import ProjectEvidenceExport from '@/components/ProjectEvidenceExport';
 
 import type { Group, GroupMember, Task, Profile, Stage } from '@/types/database';
 import { DeadlineHourPicker } from '@/components/DeadlineHourPicker';
@@ -641,6 +642,7 @@ export default function GroupDetail() {
                   showResourcesPublic={(group as any).show_resources_public ?? true}
                   onUpdate={fetchGroupData}
                 />
+                <ProjectEvidenceExport groupId={group.id} project={group} />
                 <Card>
                   <CardHeader><CardTitle className="text-destructive flex items-center gap-2"><Trash2 className="w-5 h-5" />Xóa project</CardTitle><CardDescription>Hành động này không thể hoàn tác.</CardDescription></CardHeader>
                   <CardContent><Button variant="destructive" onClick={() => setIsDeleteGroupDialogOpen(true)}><Trash2 className="w-4 h-4 mr-2" />Xóa project này</Button></CardContent>
