@@ -262,23 +262,23 @@ export default function ShareSettingsCard({
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">Hiển thị nhật ký hoạt động</span>
-                </div>
-                <Switch
-                  checked={localShowActivity}
-                  onCheckedChange={(v) => handleUpdateVisibility('show_activity_public', v)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
                   <FolderOpen className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm">Hiển thị tài nguyên dự án</span>
                 </div>
                 <Switch
                   checked={localShowResources}
                   onCheckedChange={(v) => handleUpdateVisibility('show_resources_public', v)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm">Hiển thị nhật ký hoạt động</span>
+                </div>
+                <Switch
+                  checked={localShowActivity}
+                  onCheckedChange={(v) => handleUpdateVisibility('show_activity_public', v)}
                 />
               </div>
             </div>
