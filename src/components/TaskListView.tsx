@@ -39,6 +39,7 @@ import {
   Plus,
   MoreVertical,
   Calendar,
+  CalendarPlus,
   Trash2,
   Edit,
   Loader2,
@@ -62,7 +63,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Task, Stage, GroupMember } from '@/types/database';
-import { formatDeadlineVN, isDeadlineOverdue } from '@/lib/datetime';
+import { formatDeadlineVN, isDeadlineOverdue, parseLocalDateTime } from '@/lib/datetime';
 import TaskSubmissionDialog from './TaskSubmissionDialog';
 import SubmissionHistoryPopup from './SubmissionHistoryPopup';
 import SubmissionButton from './SubmissionButton';
@@ -212,11 +213,34 @@ function TaskRow({
   dragHandleProps,
   isDragging,
 }: TaskRowProps) {
-  const overdueStatus = isOverdue(task.deadline);
+  // Handle extended deadline
+  const taskWithExtended = task as Task & { extended_deadline?: string };
+  const hasExtension = !!taskWithExtended.extended_deadline;
+  const effectiveDeadline = hasExtension ? taskWithExtended.extended_deadline : task.deadline;
+  
+  const overdueStatus = isOverdue(effectiveDeadline);
   const taskIsOverdue = overdueStatus && task.status !== 'DONE' && task.status !== 'VERIFIED';
   const canSubmit = isAssignee || isLeaderInGroup;
   const assignments = task.task_assignments || [];
   const hasMultipleAssignees = assignments.length > 1;
+
+  // Calculate extension text for display
+  const getExtensionText = () => {
+    if (!task.deadline || !hasExtension) return '';
+    const original = parseLocalDateTime(task.deadline);
+    const extended = parseLocalDateTime(taskWithExtended.extended_deadline!);
+    if (!original || !extended) return '';
+    const diffMs = extended.getTime() - original.getTime();
+    const hours = Math.round(diffMs / (1000 * 60 * 60));
+    if (hours <= 0) return '';
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+    let text = '+';
+    if (days > 0) text += `${days}d`;
+    if (days > 0 && remainingHours > 0) text += ' ';
+    if (remainingHours > 0) text += `${remainingHours}h`;
+    return text;
+  };
 
   // Handle row click for drill-down
   // Leader or Assignee → open submission/edit popup
@@ -354,17 +378,25 @@ function TaskRow({
               </div>
             )}
 
-            {/* Mobile-only: deadline + status + actions in one row (prevents overlap) */}
+            {/* Mobile-only: deadline + extension + status + actions in one row (prevents overlap) */}
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 md:hidden">
-              <div className="flex items-center gap-2">
-                {task.deadline ? (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Extension Badge for mobile */}
+                {hasExtension && (
+                  <Badge className="gap-0.5 px-1 py-0 text-[9px] bg-blue-500/15 text-blue-600 border-blue-500/30 shrink-0">
+                    <CalendarPlus className="w-2.5 h-2.5" />
+                    {getExtensionText()}
+                  </Badge>
+                )}
+                
+                {effectiveDeadline ? (
                   <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md whitespace-nowrap ${
                     taskIsOverdue 
                       ? 'bg-destructive/10 text-destructive' 
-                      : 'bg-muted text-muted-foreground'
+                      : hasExtension ? 'bg-blue-500/10 text-blue-700' : 'bg-muted text-muted-foreground'
                   }`}>
                     <Calendar className="w-3 h-3 shrink-0" />
-                    <span className="max-w-[140px] truncate">{formatDate(task.deadline)}</span>
+                    <span className="max-w-[140px] truncate">{formatDate(effectiveDeadline)}</span>
                   </div>
                 ) : (
                   <span className="text-xs text-muted-foreground/50">—</span>
@@ -468,16 +500,31 @@ function TaskRow({
           </div>
         </div>
         
-        {/* Desktop-only columns */}
-        <div className="hidden md:flex justify-end">
-          {task.deadline ? (
+        {/* Desktop-only columns - Deadline with extension badge */}
+        <div className="hidden md:flex items-center justify-end gap-1.5">
+          {/* Extension Badge */}
+          {hasExtension && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge className="gap-0.5 px-1 py-0 text-[9px] bg-blue-500/15 text-blue-600 border-blue-500/30 cursor-default shrink-0">
+                  <CalendarPlus className="w-2.5 h-2.5" />
+                  {getExtensionText()}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="text-xs">
+                <div>Đã gia hạn thêm {getExtensionText()}</div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          
+          {effectiveDeadline ? (
             <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md whitespace-nowrap ${
               taskIsOverdue 
                 ? 'bg-destructive/10 text-destructive' 
-                : 'bg-muted text-muted-foreground'
+                : hasExtension ? 'bg-blue-500/10 text-blue-700' : 'bg-muted text-muted-foreground'
             }`}>
               <Calendar className="w-3 h-3 shrink-0" />
-              <span className="truncate">{formatDate(task.deadline)}</span>
+              <span className="truncate">{formatDate(effectiveDeadline)}</span>
             </div>
           ) : (
             <span className="text-xs text-muted-foreground/50">—</span>
