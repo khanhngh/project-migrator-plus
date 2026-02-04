@@ -180,53 +180,56 @@ const addCoverPage = (
   project: Group,
   uehLogoDataUrl: string | null
 ) => {
-  // UEH Logo at top
+  // UEH Logo at top - maintain proper aspect ratio (original logo is wider than tall)
   if (uehLogoDataUrl) {
     try {
-      doc.addImage(uehLogoDataUrl, 'PNG', (pageWidth - 60) / 2, 30, 60, 30);
+      // UEH logo aspect ratio approximately 3:1 (width:height)
+      const logoWidth = 80;
+      const logoHeight = 26;
+      doc.addImage(uehLogoDataUrl, 'PNG', (pageWidth - logoWidth) / 2, 25, logoWidth, logoHeight);
     } catch (e) {
       // Fallback to text if image fails
       doc.setFontSize(32);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(...UEH_TEAL);
-      doc.text('UEH', pageWidth / 2, 50, { align: 'center' });
+      doc.text('UEH', pageWidth / 2, 45, { align: 'center' });
       doc.setFontSize(12);
       doc.setTextColor(...UEH_ORANGE);
-      doc.text('UNIVERSITY', pageWidth / 2, 60, { align: 'center' });
+      doc.text('UNIVERSITY', pageWidth / 2, 55, { align: 'center' });
     }
   } else {
     doc.setFontSize(32);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...UEH_TEAL);
-    doc.text('UEH', pageWidth / 2, 50, { align: 'center' });
+    doc.text('UEH', pageWidth / 2, 45, { align: 'center' });
     doc.setFontSize(12);
     doc.setTextColor(...UEH_ORANGE);
-    doc.text('UNIVERSITY', pageWidth / 2, 60, { align: 'center' });
+    doc.text('UNIVERSITY', pageWidth / 2, 55, { align: 'center' });
   }
 
-  // Main title
+  // Main title - adjusted position for proper logo spacing
   doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...UEH_TEAL);
-  doc.text('BAO CAO MINH CHUNG DU AN', pageWidth / 2, 90, { align: 'center' });
+  doc.text('BAO CAO MINH CHUNG DU AN', pageWidth / 2, 75, { align: 'center' });
 
   // Decorative lines
   doc.setDrawColor(...UEH_TEAL);
   doc.setLineWidth(1);
-  doc.line(40, 100, pageWidth - 40, 100);
+  doc.line(40, 85, pageWidth - 40, 85);
   doc.setDrawColor(...UEH_ORANGE);
   doc.setLineWidth(2);
-  doc.line(pageWidth / 2 - 30, 103, pageWidth / 2 + 30, 103);
+  doc.line(pageWidth / 2 - 30, 88, pageWidth / 2 + 30, 88);
 
   // Project name
   doc.setFontSize(18);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(60, 60, 60);
   const projectName = removeVietnameseDiacritics(project.name);
-  doc.text(projectName, pageWidth / 2, 125, { align: 'center' });
+  doc.text(projectName, pageWidth / 2, 110, { align: 'center' });
 
   // Info box
-  const boxY = 145;
+  const boxY = 130;
   doc.setFillColor(245, 247, 250);
   doc.setDrawColor(...UEH_TEAL);
   doc.setLineWidth(0.5);
@@ -251,7 +254,7 @@ const addCoverPage = (
     infoY += 10;
   });
 
-  // Footer
+  // Footer note
   doc.setFontSize(9);
   doc.setTextColor(128, 128, 128);
   doc.text('Tai lieu nay duoc tao tu dong boi he thong quan ly du an nhom UEH', pageWidth / 2, pageHeight - 20, { align: 'center' });
@@ -1072,4 +1075,171 @@ export const exportProjectEvidencePdf = async (data: ExportData) => {
   doc.save(fileName);
   
   return fileName;
+};
+
+// Export as Blob for backup integration (does not auto-download)
+export const generateProjectEvidencePdfBlob = async (data: ExportData): Promise<{ blob: Blob; fileName: string }> => {
+  const { project, members, stages, tasks, taskScores, stageScores, finalScores, scoreAppeals, resources, activityLogs, options } = data;
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // Load UEH logo
+  const uehLogoDataUrl = await loadImageAsBase64(uehLogoImage);
+
+  // Build TOC entries
+  const toc: TOCEntry[] = [];
+  let currentPage = 3;
+
+  toc.push({ title: 'CHUONG 1: THONG TIN CHUNG', page: currentPage, level: 1 });
+  currentPage++;
+
+  if (options.includeMembers && members.length > 0) {
+    toc.push({ title: 'CHUONG 2: DANH SACH THANH VIEN', page: currentPage, level: 1 });
+    currentPage++;
+  }
+
+  if (options.includeTasks && tasks.length > 0) {
+    toc.push({ title: 'CHUONG 3: TIEN DO THUC HIEN', page: currentPage, level: 1 });
+    currentPage++;
+    toc.push({ title: 'CHUONG 4: CHI TIET CONG VIEC', page: currentPage, level: 1 });
+    currentPage++;
+  }
+
+  if (options.includeScores && members.length > 0) {
+    toc.push({ title: 'CHUONG 5: DIEM QUA TRINH', page: currentPage, level: 1 });
+    currentPage += 2;
+  }
+
+  if (options.includeResources && resources.length > 0) {
+    toc.push({ title: 'CHUONG 6: TAI NGUYEN DU AN', page: currentPage, level: 1 });
+    currentPage++;
+  }
+
+  if (options.includeLogs && activityLogs.length > 0) {
+    toc.push({ title: 'CHUONG 7: NHAT KY HOAT DONG', page: currentPage, level: 1 });
+  }
+
+  // Cover page
+  addCoverPage(doc, pageWidth, pageHeight, project, uehLogoDataUrl);
+
+  // TOC
+  addTableOfContents(doc, pageWidth, toc);
+
+  // Chapter 1: General Info (simplified for blob version)
+  doc.addPage();
+  let yPos = 25;
+  yPos = addChapterHeading(doc, 'CHUONG 1: THONG TIN CHUNG', yPos, pageWidth);
+  
+  doc.setFillColor(245, 247, 250);
+  doc.setDrawColor(...UEH_TEAL);
+  doc.roundedRect(14, yPos, pageWidth - 28, 40, 3, 3, 'FD');
+  
+  yPos += 10;
+  doc.setFontSize(10);
+  doc.setTextColor(60, 60, 60);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Ten du an:', 20, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(removeVietnameseDiacritics(project.name), 55, yPos);
+  yPos += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Ma lop:', 20, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(project.class_code || '-', 55, yPos);
+  yPos += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('GV HD:', 20, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(removeVietnameseDiacritics(project.instructor_name || '-'), 55, yPos);
+
+  // Chapter 2: Members
+  if (options.includeMembers && members.length > 0) {
+    doc.addPage();
+    yPos = 25;
+    yPos = addChapterHeading(doc, 'CHUONG 2: DANH SACH THANH VIEN', yPos, pageWidth);
+    
+    const memberData = members.map((m, index) => [
+      (index + 1).toString(),
+      m.profiles?.student_id || '-',
+      removeVietnameseDiacritics(m.profiles?.full_name || '-'),
+      formatRole(m.role),
+      format(new Date(m.joined_at), 'dd/MM/yyyy'),
+    ]);
+    
+    autoTable(doc, {
+      head: [['STT', 'MSSV', 'Ho ten', 'Vai tro', 'Ngay tham gia']],
+      body: memberData,
+      startY: yPos,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
+      alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
+    });
+  }
+
+  // Chapter 3-4: Tasks (simplified)
+  if (options.includeTasks && tasks.length > 0) {
+    doc.addPage();
+    yPos = 25;
+    yPos = addChapterHeading(doc, 'CHUONG 3-4: TIEN DO VA CHI TIET CONG VIEC', yPos, pageWidth);
+    
+    const taskData = tasks.map((t, index) => {
+      const stageName = stages.find(s => s.id === t.stage_id)?.name || 'Chua phan';
+      return [
+        (index + 1).toString(),
+        removeVietnameseDiacritics(t.title.substring(0, 30)),
+        removeVietnameseDiacritics(stageName.substring(0, 15)),
+        formatStatus(t.status),
+        t.deadline ? format(new Date(t.deadline), 'dd/MM') : '-',
+      ];
+    });
+    
+    autoTable(doc, {
+      head: [['STT', 'Task', 'Giai doan', 'Trang thai', 'Deadline']],
+      body: taskData,
+      startY: yPos,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
+      alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
+    });
+  }
+
+  // Chapter 5: Scores (simplified)
+  if (options.includeScores && finalScores.length > 0) {
+    doc.addPage();
+    yPos = 25;
+    yPos = addChapterHeading(doc, 'CHUONG 5: DIEM QUA TRINH', yPos, pageWidth);
+    
+    const scoreData = members.map((m, index) => {
+      const fs = finalScores.find(f => f.user_id === m.user_id);
+      return [
+        (index + 1).toString(),
+        m.profiles?.student_id || '-',
+        removeVietnameseDiacritics(m.profiles?.full_name || '-'),
+        fs?.final_score?.toFixed(2) || '-',
+      ];
+    });
+    
+    autoTable(doc, {
+      head: [['STT', 'MSSV', 'Ho ten', 'Diem cuoi']],
+      body: scoreData,
+      startY: yPos,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: UEH_TEAL, textColor: 255, fontStyle: 'bold', halign: 'center' },
+      alternateRowStyles: { fillColor: UEH_TEAL_LIGHT },
+    });
+  }
+
+  // Add footers
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    addFooter(doc, pageWidth, pageHeight, i, totalPages);
+  }
+
+  const slug = project.slug || project.short_id || 'project';
+  const fileName = `minh-chung-${removeVietnameseDiacritics(slug).toLowerCase().replace(/\s+/g, '-')}.pdf`;
+  const blob = doc.output('blob');
+  
+  return { blob, fileName };
 };
