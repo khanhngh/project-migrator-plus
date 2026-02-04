@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   File, 
@@ -231,25 +230,26 @@ export default function ResourceTagTextarea({
 
   return (
     <div className="relative">
-      {/* Suggestions Popup */}
+      {/* Suggestions Popup - Compact */}
       {showSuggestions && (
         <Card 
-          className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden z-50 shadow-xl border-border/50 animate-in fade-in slide-in-from-bottom-2 duration-150"
+          className="absolute bottom-full left-0 right-0 mb-1 overflow-hidden z-50 shadow-lg border-border/50 animate-in fade-in slide-in-from-bottom-2 duration-100"
         >
-          <div className="p-2 border-b bg-muted/30">
-            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <div className="px-2 py-1.5 border-b bg-muted/30 flex items-center justify-between">
+            <span className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
               <Hash className="w-3 h-3" />
-              Chọn tài nguyên
+              Tài nguyên
             </span>
+            <span className="text-[9px] text-muted-foreground">↑↓ chọn • Enter chèn</span>
           </div>
-          <div className="max-h-64 overflow-y-auto p-1">
+          <div className="max-h-40 overflow-y-auto">
             {isLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <div className="flex items-center justify-center py-3">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               </div>
             ) : suggestions.length === 0 ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">
-                Không tìm thấy tài nguyên
+              <div className="text-center py-3 text-xs text-muted-foreground">
+                Không tìm thấy
               </div>
             ) : (
               suggestions.map((resource, index) => (
@@ -257,39 +257,25 @@ export default function ResourceTagTextarea({
                   key={resource.id}
                   type="button"
                   className={cn(
-                    'w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 transition-all duration-150',
+                    'w-full text-left px-2 py-1.5 flex items-center gap-2 transition-colors text-xs',
                     index === selectedIndex 
-                      ? 'bg-primary/10 text-foreground' 
+                      ? 'bg-primary/10' 
                       : 'hover:bg-muted/50'
                   )}
                   onClick={() => handleSelectSuggestion(resource)}
                   onMouseEnter={() => setSelectedIndex(index)}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
-                    {getFileIcon(resource.name)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium text-sm truncate block">{resource.name}</span>
-                    {resource.folder_name && (
-                      <p className="text-muted-foreground text-xs truncate flex items-center gap-1">
-                        <Folder className="w-3 h-3" />
-                        {resource.folder_name}
-                      </p>
-                    )}
-                  </div>
-                  {index === selectedIndex && (
-                    <Badge variant="secondary" className="text-[10px] shrink-0">
-                      Enter ↵
-                    </Badge>
+                  <span className="shrink-0">{getFileIcon(resource.name)}</span>
+                  <span className="truncate flex-1 font-medium">{resource.name}</span>
+                  {resource.folder_name && (
+                    <span className="text-[10px] text-muted-foreground truncate max-w-[80px] flex items-center gap-0.5">
+                      <Folder className="w-2.5 h-2.5" />
+                      {resource.folder_name}
+                    </span>
                   )}
                 </button>
               ))
             )}
-          </div>
-          <div className="p-2 border-t bg-muted/20">
-            <span className="text-[10px] text-muted-foreground">
-              Gõ để tìm kiếm • ↑↓ để chọn • Enter để chèn
-            </span>
           </div>
         </Card>
       )}
@@ -306,12 +292,10 @@ export default function ResourceTagTextarea({
         disabled={disabled}
       />
 
-      {/* Helper text */}
-      <div className="mt-1.5 flex items-center gap-2">
-        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-          <Hash className="w-3 h-3" /> Gõ # để chèn tài nguyên
-        </span>
-      </div>
+      {/* Helper text - minimal */}
+      <p className="mt-1 text-[10px] text-muted-foreground flex items-center gap-1">
+        <Hash className="w-2.5 h-2.5" /> Gõ # để chèn tài nguyên
+      </p>
     </div>
   );
 }
