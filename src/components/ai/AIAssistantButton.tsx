@@ -5,6 +5,7 @@ import AIAssistantPanel from './AIAssistantPanel';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Sparkles, MessageCircle } from 'lucide-react';
 import aiLogo from '@/assets/ai-assistant-logo.png';
+import zaloLogo from '@/assets/zalo-logo.png';
 
 interface AIAssistantButtonProps {
   projectId?: string;
@@ -104,14 +105,18 @@ export default function AIAssistantButton({ projectId, projectName, zaloLink }: 
             size="sm"
             className={cn(
               "relative rounded-full h-12 w-12 shadow-xl p-0",
-              "bg-[#0068FF] hover:bg-[#0054CC]",
+              "bg-white hover:bg-gray-50",
               "transition-all duration-300 hover:scale-110",
               "group overflow-hidden",
               "ring-2 ring-[#0068FF]/30"
             )}
             title="Liên hệ qua Zalo"
           >
-            <MessageCircle className="h-5 w-5 text-white" />
+            <img 
+              src={zaloLogo} 
+              alt="Zalo" 
+              className="h-8 w-8 object-contain"
+            />
             <span className="sr-only">Liên hệ Zalo</span>
           </Button>
         )}
