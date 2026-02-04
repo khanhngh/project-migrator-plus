@@ -10,7 +10,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -35,6 +34,7 @@ import FileSizeLimitSelector, { formatFileSizeMB } from './FileSizeLimitSelector
 import { notifyTaskUpdated, notifyTaskAssigneesChanged } from '@/lib/notifications';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import ResourceTagTextarea from './ResourceTagTextarea';
 
 interface TaskEditDialogProps {
   task: Task | null;
@@ -353,7 +353,13 @@ export default function TaskEditDialog({
                   <div>
                     <Label className="text-xs mb-1.5 block">Mô tả</Label>
                     {canEditDetails ? (
-                      <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Mô tả công việc..." className="min-h-[80px] resize-none text-sm" />
+                      <ResourceTagTextarea 
+                        value={description} 
+                        onChange={setDescription} 
+                        groupId={task?.group_id || ''} 
+                        placeholder="Mô tả công việc... (gõ # để chèn tài nguyên)" 
+                        minHeight="80px"
+                      />
                     ) : (
                       <div className="p-2 rounded-md bg-muted/50 border text-sm min-h-[60px]">
                         {task?.description || <span className="text-muted-foreground">Không có mô tả</span>}
