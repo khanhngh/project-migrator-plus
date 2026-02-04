@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, FolderKanban } from 'lucide-react';
+import { FolderKanban, Users, Calendar, ExternalLink } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import type { Group } from '@/types/database';
 
 interface DashboardProjectCardProps {
@@ -9,41 +10,84 @@ interface DashboardProjectCardProps {
 export default function DashboardProjectCard({
   group,
 }: DashboardProjectCardProps) {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
   return (
-    <div className="border rounded-xl overflow-hidden">
-      {/* Project Header - Clickable */}
-      <Link
-        to={`/p/${group.slug}`}
-        className="group flex items-center gap-4 p-4 bg-card hover:bg-muted/30 transition-all"
-      >
-        {/* Thumbnail */}
-        <div className="relative w-20 h-20 flex-shrink-0 rounded-xl bg-muted overflow-hidden">
-          {group.image_url ? (
-            <img
-              src={group.image_url}
-              alt={group.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-              <FolderKanban className="w-8 h-8 text-primary/40" />
-            </div>
-          )}
+    <Link
+      to={`/p/${group.slug}`}
+      className="group relative block aspect-square rounded-2xl overflow-hidden bg-card border border-border/50 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300"
+    >
+      {/* Background Image or Gradient */}
+      <div className="absolute inset-0">
+        {group.image_url ? (
+          <img
+            src={group.image_url}
+            alt={group.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-primary/20 via-primary/10 to-transparent" />
+        )}
+        {/* Overlay gradient for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+      </div>
+
+      {/* Content */}
+      <div className="relative h-full flex flex-col justify-between p-4">
+        {/* Top Section - Icon and badges */}
+        <div className="flex items-start justify-between">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 backdrop-blur-sm flex items-center justify-center border border-primary/20">
+            <FolderKanban className="w-6 h-6 text-primary" />
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {group.is_public && (
+              <Badge variant="secondary" className="text-xs bg-background/80 backdrop-blur-sm">
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Công khai
+              </Badge>
+            )}
+          </div>
         </div>
 
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-base line-clamp-1 group-hover:text-primary transition-colors">
-            {group.name}
-          </h3>
-          <p className="text-sm text-muted-foreground truncate mt-0.5">
-            {group.description || 'Không có mô tả'}
-          </p>
-        </div>
+        {/* Bottom Section - Title and info */}
+        <div className="space-y-3">
+          <div>
+            <h3 className="font-bold text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+              {group.name}
+            </h3>
+            {group.description && (
+              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                {group.description}
+              </p>
+            )}
+          </div>
 
-        <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-      </Link>
-    </div>
+          {/* Meta info */}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {group.class_code && (
+              <span className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-md">
+                <Users className="w-3 h-3" />
+                {group.class_code}
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {formatDate(group.created_at)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Hover effect overlay */}
+      <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+    </Link>
   );
 }
