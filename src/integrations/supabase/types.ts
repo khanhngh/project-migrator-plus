@@ -65,8 +65,8 @@ export type Database = {
           file_name: string
           file_path: string
           file_size: number
-          file_type: string | null
           id: string
+          storage_name: string
         }
         Insert: {
           appeal_id: string
@@ -74,8 +74,8 @@ export type Database = {
           file_name: string
           file_path: string
           file_size: number
-          file_type?: string | null
           id?: string
+          storage_name: string
         }
         Update: {
           appeal_id?: string
@@ -83,8 +83,8 @@ export type Database = {
           file_name?: string
           file_path?: string
           file_size?: number
-          file_type?: string | null
           id?: string
+          storage_name?: string
         }
         Relationships: [
           {
@@ -102,7 +102,8 @@ export type Database = {
           created_at: string
           feedback_id: string
           id: string
-          is_hidden: boolean
+          is_admin: boolean
+          is_hidden: boolean | null
           updated_at: string
           user_id: string
         }
@@ -111,7 +112,8 @@ export type Database = {
           created_at?: string
           feedback_id: string
           id?: string
-          is_hidden?: boolean
+          is_admin?: boolean
+          is_hidden?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -120,7 +122,8 @@ export type Database = {
           created_at?: string
           feedback_id?: string
           id?: string
-          is_hidden?: boolean
+          is_admin?: boolean
+          is_hidden?: boolean | null
           updated_at?: string
           user_id?: string
         }
@@ -136,33 +139,62 @@ export type Database = {
       }
       feedbacks: {
         Row: {
+          admin_response: string | null
           content: string
           created_at: string
+          group_id: string | null
           id: string
-          is_hidden: boolean
+          is_hidden: boolean | null
+          priority: string
+          responded_at: string | null
+          responded_by: string | null
+          status: string
           title: string
+          type: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          admin_response?: string | null
           content: string
           created_at?: string
+          group_id?: string | null
           id?: string
-          is_hidden?: boolean
+          is_hidden?: boolean | null
+          priority?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
           title: string
+          type: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          admin_response?: string | null
           content?: string
           created_at?: string
+          group_id?: string | null
           id?: string
-          is_hidden?: boolean
+          is_hidden?: boolean | null
+          priority?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
           title?: string
+          type?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "feedbacks_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       group_members: {
         Row: {
@@ -207,14 +239,14 @@ export type Database = {
           image_url: string | null
           instructor_email: string | null
           instructor_name: string | null
-          is_public: boolean
+          is_public: boolean | null
           leader_id: string | null
           name: string
           share_token: string | null
-          short_id: string
-          show_activity_public: boolean
-          show_members_public: boolean
-          slug: string
+          short_id: string | null
+          show_activity_public: boolean | null
+          show_members_public: boolean | null
+          slug: string | null
           updated_at: string
           zalo_link: string | null
         }
@@ -228,14 +260,14 @@ export type Database = {
           image_url?: string | null
           instructor_email?: string | null
           instructor_name?: string | null
-          is_public?: boolean
+          is_public?: boolean | null
           leader_id?: string | null
           name: string
           share_token?: string | null
-          short_id?: string
-          show_activity_public?: boolean
-          show_members_public?: boolean
-          slug: string
+          short_id?: string | null
+          show_activity_public?: boolean | null
+          show_members_public?: boolean | null
+          slug?: string | null
           updated_at?: string
           zalo_link?: string | null
         }
@@ -249,14 +281,14 @@ export type Database = {
           image_url?: string | null
           instructor_email?: string | null
           instructor_name?: string | null
-          is_public?: boolean
+          is_public?: boolean | null
           leader_id?: string | null
           name?: string
           share_token?: string | null
-          short_id?: string
-          show_activity_public?: boolean
-          show_members_public?: boolean
-          slug?: string
+          short_id?: string | null
+          show_activity_public?: boolean | null
+          show_members_public?: boolean | null
+          slug?: string | null
           updated_at?: string
           zalo_link?: string | null
         }
@@ -264,43 +296,34 @@ export type Database = {
       }
       member_final_scores: {
         Row: {
-          adjusted_at: string | null
-          adjusted_by: string | null
           adjustment: number | null
-          adjustment_reason: string | null
-          calculated_score: number | null
           created_at: string
           final_score: number | null
           group_id: string
           id: string
           updated_at: string
           user_id: string
+          weighted_average: number | null
         }
         Insert: {
-          adjusted_at?: string | null
-          adjusted_by?: string | null
           adjustment?: number | null
-          adjustment_reason?: string | null
-          calculated_score?: number | null
           created_at?: string
           final_score?: number | null
           group_id: string
           id?: string
           updated_at?: string
           user_id: string
+          weighted_average?: number | null
         }
         Update: {
-          adjusted_at?: string | null
-          adjusted_by?: string | null
           adjustment?: number | null
-          adjustment_reason?: string | null
-          calculated_score?: number | null
           created_at?: string
           final_score?: number | null
           group_id?: string
           id?: string
           updated_at?: string
           user_id?: string
+          weighted_average?: number | null
         }
         Relationships: [
           {
@@ -314,11 +337,7 @@ export type Database = {
       }
       member_stage_scores: {
         Row: {
-          adjusted_at: string | null
-          adjusted_by: string | null
           adjusted_score: number | null
-          adjustment: number | null
-          adjustment_reason: string | null
           average_score: number | null
           bug_hunter_bonus: boolean
           created_at: string
@@ -332,11 +351,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          adjusted_at?: string | null
-          adjusted_by?: string | null
           adjusted_score?: number | null
-          adjustment?: number | null
-          adjustment_reason?: string | null
           average_score?: number | null
           bug_hunter_bonus?: boolean
           created_at?: string
@@ -350,11 +365,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          adjusted_at?: string | null
-          adjusted_by?: string | null
           adjusted_score?: number | null
-          adjustment?: number | null
-          adjustment_reason?: string | null
           average_score?: number | null
           bug_hunter_bonus?: boolean
           created_at?: string
@@ -382,31 +393,31 @@ export type Database = {
           comment_id: string | null
           created_at: string
           id: string
-          is_read: boolean
-          mention_type: string
-          mentioned_task_id: string | null
-          mentioned_user_id: string | null
-          message_id: string | null
+          is_read: boolean | null
+          mentioned_by: string
+          mentioned_user_id: string
+          message_id: string
+          message_type: string
         }
         Insert: {
           comment_id?: string | null
           created_at?: string
           id?: string
-          is_read?: boolean
-          mention_type: string
-          mentioned_task_id?: string | null
-          mentioned_user_id?: string | null
-          message_id?: string | null
+          is_read?: boolean | null
+          mentioned_by: string
+          mentioned_user_id: string
+          message_id: string
+          message_type: string
         }
         Update: {
           comment_id?: string | null
           created_at?: string
           id?: string
-          is_read?: boolean
-          mention_type?: string
-          mentioned_task_id?: string | null
-          mentioned_user_id?: string | null
-          message_id?: string | null
+          is_read?: boolean | null
+          mentioned_by?: string
+          mentioned_user_id?: string
+          message_id?: string
+          message_type?: string
         }
         Relationships: [
           {
@@ -414,20 +425,6 @@ export type Database = {
             columns: ["comment_id"]
             isOneToOne: false
             referencedRelation: "task_comments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "message_mentions_mentioned_task_id_fkey"
-            columns: ["mentioned_task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "message_mentions_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "project_messages"
             referencedColumns: ["id"]
           },
         ]
@@ -438,7 +435,7 @@ export type Database = {
           group_id: string | null
           id: string
           is_read: boolean
-          message: string | null
+          message: string
           task_id: string | null
           title: string
           type: string
@@ -449,7 +446,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_read?: boolean
-          message?: string | null
+          message: string
           task_id?: string | null
           title: string
           type: string
@@ -460,7 +457,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_read?: boolean
-          message?: string | null
+          message?: string
           task_id?: string | null
           title?: string
           type?: string
@@ -578,9 +575,6 @@ export type Database = {
           created_at: string
           group_id: string
           id: string
-          is_read_by: Json | null
-          reply_to: string | null
-          source_comment_id: string | null
           source_task_id: string | null
           source_type: string
           updated_at: string
@@ -591,9 +585,6 @@ export type Database = {
           created_at?: string
           group_id: string
           id?: string
-          is_read_by?: Json | null
-          reply_to?: string | null
-          source_comment_id?: string | null
           source_task_id?: string | null
           source_type?: string
           updated_at?: string
@@ -604,9 +595,6 @@ export type Database = {
           created_at?: string
           group_id?: string
           id?: string
-          is_read_by?: Json | null
-          reply_to?: string | null
-          source_comment_id?: string | null
           source_task_id?: string | null
           source_type?: string
           updated_at?: string
@@ -621,20 +609,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "project_messages_reply_to_fkey"
-            columns: ["reply_to"]
-            isOneToOne: false
-            referencedRelation: "project_messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_messages_source_comment_id_fkey"
-            columns: ["source_comment_id"]
-            isOneToOne: false
-            referencedRelation: "task_comments"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "project_messages_source_task_id_fkey"
             columns: ["source_task_id"]
             isOneToOne: false
@@ -646,80 +620,49 @@ export type Database = {
       score_adjustment_history: {
         Row: {
           adjusted_by: string
-          adjustment: number
           adjustment_type: string
+          adjustment_value: number | null
           created_at: string
-          final_score_id: string | null
           id: string
           new_score: number | null
           previous_score: number | null
-          reason: string
-          stage_score_id: string | null
-          task_score_id: string | null
+          reason: string | null
+          target_id: string
           user_id: string
         }
         Insert: {
           adjusted_by: string
-          adjustment: number
           adjustment_type: string
+          adjustment_value?: number | null
           created_at?: string
-          final_score_id?: string | null
           id?: string
           new_score?: number | null
           previous_score?: number | null
-          reason: string
-          stage_score_id?: string | null
-          task_score_id?: string | null
+          reason?: string | null
+          target_id: string
           user_id: string
         }
         Update: {
           adjusted_by?: string
-          adjustment?: number
           adjustment_type?: string
+          adjustment_value?: number | null
           created_at?: string
-          final_score_id?: string | null
           id?: string
           new_score?: number | null
           previous_score?: number | null
-          reason?: string
-          stage_score_id?: string | null
-          task_score_id?: string | null
+          reason?: string | null
+          target_id?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "score_adjustment_history_final_score_id_fkey"
-            columns: ["final_score_id"]
-            isOneToOne: false
-            referencedRelation: "member_final_scores"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "score_adjustment_history_stage_score_id_fkey"
-            columns: ["stage_score_id"]
-            isOneToOne: false
-            referencedRelation: "member_stage_scores"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "score_adjustment_history_task_score_id_fkey"
-            columns: ["task_score_id"]
-            isOneToOne: false
-            referencedRelation: "task_scores"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       score_appeals: {
         Row: {
-          appeal_type: string
-          content: string
           created_at: string
-          final_score_id: string | null
           id: string
-          responded_at: string | null
-          responded_by: string | null
-          response: string | null
+          reason: string
+          reviewer_id: string | null
+          reviewer_response: string | null
           stage_score_id: string | null
           status: string
           task_score_id: string | null
@@ -727,14 +670,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          appeal_type: string
-          content: string
           created_at?: string
-          final_score_id?: string | null
           id?: string
-          responded_at?: string | null
-          responded_by?: string | null
-          response?: string | null
+          reason: string
+          reviewer_id?: string | null
+          reviewer_response?: string | null
           stage_score_id?: string | null
           status?: string
           task_score_id?: string | null
@@ -742,14 +682,11 @@ export type Database = {
           user_id: string
         }
         Update: {
-          appeal_type?: string
-          content?: string
           created_at?: string
-          final_score_id?: string | null
           id?: string
-          responded_at?: string | null
-          responded_by?: string | null
-          response?: string | null
+          reason?: string
+          reviewer_id?: string | null
+          reviewer_response?: string | null
           stage_score_id?: string | null
           status?: string
           task_score_id?: string | null
@@ -757,13 +694,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "score_appeals_final_score_id_fkey"
-            columns: ["final_score_id"]
-            isOneToOne: false
-            referencedRelation: "member_final_scores"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "score_appeals_stage_score_id_fkey"
             columns: ["stage_score_id"]
@@ -783,6 +713,7 @@ export type Database = {
       stage_weights: {
         Row: {
           created_at: string
+          group_id: string
           id: string
           stage_id: string
           updated_at: string
@@ -790,6 +721,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          group_id: string
           id?: string
           stage_id: string
           updated_at?: string
@@ -797,6 +729,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          group_id?: string
           id?: string
           stage_id?: string
           updated_at?: string
@@ -804,9 +737,16 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "stage_weights_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stage_weights_stage_id_fkey"
             columns: ["stage_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "stages"
             referencedColumns: ["id"]
           },
@@ -819,11 +759,12 @@ export type Database = {
           end_date: string | null
           group_id: string
           id: string
-          is_hidden: boolean
+          is_hidden: boolean | null
           name: string
           order_index: number
           start_date: string | null
           updated_at: string
+          weight: number | null
         }
         Insert: {
           created_at?: string
@@ -831,11 +772,12 @@ export type Database = {
           end_date?: string | null
           group_id: string
           id?: string
-          is_hidden?: boolean
+          is_hidden?: boolean | null
           name: string
           order_index?: number
           start_date?: string | null
           updated_at?: string
+          weight?: number | null
         }
         Update: {
           created_at?: string
@@ -843,11 +785,12 @@ export type Database = {
           end_date?: string | null
           group_id?: string
           id?: string
-          is_hidden?: boolean
+          is_hidden?: boolean | null
           name?: string
           order_index?: number
           start_date?: string | null
           updated_at?: string
+          weight?: number | null
         }
         Relationships: [
           {
@@ -940,6 +883,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          parent_id: string | null
           task_id: string
           updated_at: string
           user_id: string
@@ -948,6 +892,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          parent_id?: string | null
           task_id: string
           updated_at?: string
           user_id: string
@@ -956,11 +901,19 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          parent_id?: string | null
           task_id?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "task_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "task_comments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "task_comments_task_id_fkey"
             columns: ["task_id"]
@@ -984,7 +937,7 @@ export type Database = {
           created_at?: string
           file_name: string
           file_path: string
-          file_size?: number
+          file_size: number
           id?: string
           note_id: string
           storage_name: string
@@ -1012,6 +965,7 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string
+          created_by: string
           id: string
           task_id: string
           updated_at: string
@@ -1020,14 +974,16 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string
+          created_by: string
           id?: string
           task_id: string
           updated_at?: string
-          version_name?: string
+          version_name: string
         }
         Update: {
           content?: string | null
           created_at?: string
+          created_by?: string
           id?: string
           task_id?: string
           updated_at?: string
@@ -1114,66 +1070,48 @@ export type Database = {
           created_by: string
           deadline: string | null
           description: string | null
-          extended_at: string | null
-          extended_by: string | null
-          extended_deadline: string | null
           group_id: string
           id: string
-          is_hidden: boolean
-          is_restored: boolean
-          max_file_size: number | null
-          short_id: string
-          slug: string
+          is_hidden: boolean | null
+          short_id: string | null
+          slug: string | null
           stage_id: string | null
           status: Database["public"]["Enums"]["task_status"]
           submission_link: string | null
           title: string
           updated_at: string
-          upload_size_limit: number
         }
         Insert: {
           created_at?: string
           created_by: string
           deadline?: string | null
           description?: string | null
-          extended_at?: string | null
-          extended_by?: string | null
-          extended_deadline?: string | null
           group_id: string
           id?: string
-          is_hidden?: boolean
-          is_restored?: boolean
-          max_file_size?: number | null
-          short_id?: string
-          slug: string
+          is_hidden?: boolean | null
+          short_id?: string | null
+          slug?: string | null
           stage_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           submission_link?: string | null
           title: string
           updated_at?: string
-          upload_size_limit?: number
         }
         Update: {
           created_at?: string
           created_by?: string
           deadline?: string | null
           description?: string | null
-          extended_at?: string | null
-          extended_by?: string | null
-          extended_deadline?: string | null
           group_id?: string
           id?: string
-          is_hidden?: boolean
-          is_restored?: boolean
-          max_file_size?: number | null
-          short_id?: string
-          slug?: string
+          is_hidden?: boolean | null
+          short_id?: string | null
+          slug?: string | null
           stage_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           submission_link?: string | null
           title?: string
           updated_at?: string
-          upload_size_limit?: number
         }
         Relationships: [
           {
@@ -1218,19 +1156,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      cleanup_old_notifications: { Args: never; Returns: undefined }
-      ensure_admin_exists: { Args: never; Returns: undefined }
-      generate_share_token: { Args: never; Returns: string }
-      generate_short_id: { Args: { length?: number }; Returns: string }
-      generate_slug: { Args: { input_text: string }; Returns: string }
-      generate_unique_group_slug: {
-        Args: { group_id: string; group_name: string }
-        Returns: string
-      }
-      generate_unique_task_slug: {
-        Args: { task_group_id: string; task_id: string; task_title: string }
-        Returns: string
-      }
       get_email_by_student_id: {
         Args: { _student_id: string }
         Returns: string
