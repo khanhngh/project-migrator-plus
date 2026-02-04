@@ -638,6 +638,7 @@ export default function GroupDetail() {
                   shareToken={group.share_token || null}
                   showMembersPublic={group.show_members_public ?? true}
                   showActivityPublic={group.show_activity_public ?? true}
+                  showResourcesPublic={(group as any).show_resources_public ?? true}
                   onUpdate={fetchGroupData}
                 />
                 <Card>

@@ -17,7 +17,7 @@ import {
   Loader2, Eye, Calendar, Clock, Users, Activity, 
   CheckCircle, Circle, AlertCircle, Layers, 
   ChevronDown, ChevronRight, User, BookOpen, Mail, Link as LinkIcon,
-  ExternalLink, LogIn, LayoutDashboard, FileText, Menu, X, FolderKanban
+  ExternalLink, LogIn, LayoutDashboard, FileText, Menu, X, FolderKanban, FolderOpen
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -30,6 +30,7 @@ import PublicGroupDashboard from '@/components/public/PublicGroupDashboard';
 import PublicTaskListView from '@/components/public/PublicTaskListView';
 import PublicMemberList from '@/components/public/PublicMemberList';
 import PublicActivityLog from '@/components/public/PublicActivityLog';
+import PublicResourceList from '@/components/public/PublicResourceList';
 
 interface ExtendedGroup extends Group {
   class_code: string | null;
@@ -41,6 +42,7 @@ interface ExtendedGroup extends Group {
   share_token: string | null;
   show_members_public: boolean;
   show_activity_public: boolean;
+  show_resources_public?: boolean;
 }
 
 interface ActivityLog {
@@ -52,7 +54,7 @@ interface ActivityLog {
   created_at: string;
 }
 
-type TabValue = 'overview' | 'tasks' | 'members' | 'activity';
+type TabValue = 'overview' | 'tasks' | 'resources' | 'members' | 'activity';
 
 export default function PublicProjectView() {
   const { shareToken } = useParams<{ shareToken: string }>();
@@ -164,6 +166,7 @@ export default function PublicProjectView() {
   const navItems = [
     { id: 'overview' as TabValue, name: 'Tổng quan', icon: LayoutDashboard },
     { id: 'tasks' as TabValue, name: 'Task & Giai đoạn', icon: Layers },
+    ...(group?.show_resources_public !== false ? [{ id: 'resources' as TabValue, name: 'Tài nguyên', icon: FolderOpen }] : []),
     ...(group?.show_members_public ? [{ id: 'members' as TabValue, name: `Thành viên (${members.length})`, icon: Users }] : []),
     ...(group?.show_activity_public ? [{ id: 'activity' as TabValue, name: 'Nhật ký', icon: Activity }] : []),
   ];
@@ -362,6 +365,10 @@ export default function PublicProjectView() {
               tasks={tasks}
               groupId={group.id}
             />
+          )}
+
+          {activeTab === 'resources' && group.show_resources_public !== false && (
+            <PublicResourceList groupId={group.id} />
           )}
           
           {activeTab === 'members' && group.show_members_public && (
