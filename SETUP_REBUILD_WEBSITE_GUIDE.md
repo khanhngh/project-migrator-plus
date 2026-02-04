@@ -1,10 +1,11 @@
 # 🚀 HƯỚNG DẪN SETUP VÀ TÁI TẠO WEBSITE TEAMWORKS UEH
 # COMPLETE REBUILD GUIDE - VERSION 3.0
 
-> **Phiên bản:** 3.0 (FULL DETAILED)  
+> **Phiên bản:** 3.1 (STORAGE DETAILED)  
 > **Cập nhật lần cuối:** 04/02/2026  
 > **Tác giả:** Nguyễn Hoàng Khánh (khanhngh.ueh@gmail.com)  
-> **Đơn vị:** Trường Đại học Kinh tế TP. Hồ Chí Minh (UEH)
+> **Đơn vị:** Trường Đại học Kinh tế TP. Hồ Chí Minh (UEH)  
+> **Backend:** Supabase (PostgreSQL + Auth + Storage + Edge Functions)
 
 ---
 
@@ -1634,96 +1635,442 @@ FOR DELETE USING (
 
 ---
 
-### 3.6 STORAGE - CHI TIẾT
+### 3.6 SUPABASE STORAGE - CHI TIẾT ĐẦY ĐỦ
 
-#### 3.6.1 Tạo Buckets
+> ⚠️ **QUAN TRỌNG:** Dự án này SỬ DỤNG SUPABASE STORAGE để lưu trữ tất cả file. Không sử dụng bất kỳ dịch vụ storage nào khác.
+
+> 📝 **CHANGELOG STORAGE:**  
+> - **04/02/2026**: Khởi tạo 6 buckets (avatars, group-images, task-submissions, task-note-attachments, appeal-attachments, project-resources)  
+> - Mọi thay đổi về storage (thêm/xóa bucket, đổi quyền, đổi cách lưu) **BẮT BUỘC** phải cập nhật vào phần này
+
+---
+
+#### 3.6.1 TỔNG QUAN STORAGE
+
+| # | Bucket Name | Public | Mô tả chi tiết | Component sử dụng |
+|---|-------------|--------|----------------|-------------------|
+| 1 | `avatars` | ✅ Yes | Ảnh đại diện người dùng | `AvatarUpload.tsx`, `PersonalInfo.tsx` |
+| 2 | `group-images` | ✅ Yes | Ảnh cover/banner của nhóm | `GroupInfoCard.tsx` |
+| 3 | `task-submissions` | ✅ Yes | File nộp bài của task | `MultiFileUploadSubmission.tsx`, `TaskSubmissionDialog.tsx` |
+| 4 | `task-note-attachments` | ✅ Yes | File đính kèm trong ghi chú task | `TaskNotes.tsx`, `CompactTaskNotes.tsx` |
+| 5 | `appeal-attachments` | ✅ Yes | Minh chứng đính kèm khiếu nại điểm | `ProcessScores.tsx`, `AppealReviewDialog.tsx` |
+| 6 | `project-resources` | ✅ Yes | Tài liệu dự án, file chia sẻ nhóm | `ProjectResources.tsx` |
+
+---
+
+#### 3.6.2 CHI TIẾT TỪNG BUCKET
+
+##### 📁 BUCKET 1: `avatars`
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **Tên bucket** | `avatars` |
+| **Public/Private** | PUBLIC (ai cũng xem được URL) |
+| **Mục đích** | Lưu ảnh đại diện của user |
+| **Giới hạn file** | Max 2MB, chỉ ảnh (jpg, png, gif, webp) |
+| **Liên kết DB** | `profiles.avatar_url` lưu public URL |
+
+**Naming Convention:**
+```
+{user_id}/{timestamp}.{extension}
+```
+
+**Ví dụ path thực tế:**
+```
+a1b2c3d4-e5f6-7890-abcd-ef1234567890/1706198400000.png
+```
+
+**Component sử dụng:**
+- `src/components/AvatarUpload.tsx` - Upload/delete avatar
+- `src/pages/PersonalInfo.tsx` - Hiển thị và cập nhật avatar
+
+**Flow hoạt động:**
+```
+1. User chọn ảnh → AvatarUpload.tsx
+2. Validate: size ≤ 2MB, type = image/*
+3. Xóa ảnh cũ (nếu có) từ storage
+4. Upload ảnh mới: supabase.storage.from('avatars').upload(...)
+5. Lấy public URL: supabase.storage.from('avatars').getPublicUrl(...)
+6. Update profiles.avatar_url = public URL
+```
+
+---
+
+##### 📁 BUCKET 2: `group-images`
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **Tên bucket** | `group-images` |
+| **Public/Private** | PUBLIC |
+| **Mục đích** | Ảnh cover/banner/logo của nhóm |
+| **Giới hạn file** | Max 5MB, chỉ ảnh |
+| **Liên kết DB** | `groups.image_url` lưu public URL |
+
+**Naming Convention:**
+```
+{group_id}/{timestamp}.{extension}
+```
+
+**Ví dụ path thực tế:**
+```
+x1y2z3a4-b5c6-7890-defg-hi1234567890/1706198400000.jpg
+```
+
+**Component sử dụng:**
+- `src/components/GroupInfoCard.tsx` - Upload ảnh nhóm
+
+**Ai có quyền:**
+- SELECT: Tất cả (public)
+- INSERT: Leader của nhóm đó
+- UPDATE: Leader của nhóm đó
+- DELETE: Leader của nhóm đó hoặc Admin
+
+---
+
+##### 📁 BUCKET 3: `task-submissions`
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **Tên bucket** | `task-submissions` |
+| **Public/Private** | PUBLIC |
+| **Mục đích** | Lưu file nộp bài cho các task |
+| **Giới hạn file** | Cấu hình trong `tasks.max_file_size` (mặc định 10MB, tối đa 100MB) |
+| **Liên kết DB** | `submission_history.file_path`, `submission_history.file_name`, `submission_history.file_size` |
+
+**Naming Convention:**
+```
+{user_id}/{task_id}/{uuid}.{extension}
+```
+
+**Ví dụ path thực tế:**
+```
+a1b2c3d4/e5f6g7h8/550e8400-e29b-41d4-a716-446655440000.pdf
+```
+
+**Component sử dụng:**
+- `src/components/MultiFileUploadSubmission.tsx` - Upload multi-file
+- `src/components/TaskSubmissionDialog.tsx` - Dialog nộp bài
+- `src/components/SubmissionHistoryPopup.tsx` - Xem lịch sử nộp bài
+
+**Flow hoạt động:**
+```
+1. Member chọn file(s) để nộp
+2. Validate: tổng size ≤ task.max_file_size
+3. Generate safe storage name: {uuid}.{ext}
+4. Upload: supabase.storage.from('task-submissions').upload(...)
+5. Insert vào submission_history với submission_type = 'file'
+6. Nếu upload fail → rollback: xóa các file đã upload
+```
+
+**Ai có quyền:**
+- SELECT: Tất cả authenticated users (để xem file của nhóm)
+- INSERT: Authenticated users
+- DELETE: Owner của file hoặc Admin
+
+---
+
+##### 📁 BUCKET 4: `task-note-attachments`
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **Tên bucket** | `task-note-attachments` |
+| **Public/Private** | PUBLIC |
+| **Mục đích** | File đính kèm trong ghi chú task |
+| **Giới hạn file** | Max 10MB/file |
+| **Liên kết DB** | `task_note_attachments.file_path`, `task_note_attachments.file_name`, `task_note_attachments.storage_name` |
+
+**Naming Convention:**
+```
+{task_id}/{note_id}/{timestamp}_{safe_filename}.{extension}
+```
+
+**Ví dụ path thực tế:**
+```
+task123/note456/1706198400000_screenshot.png
+```
+
+**Component sử dụng:**
+- `src/components/TaskNotes.tsx` - Quản lý ghi chú
+- `src/components/CompactTaskNotes.tsx` - Ghi chú dạng compact
+
+**Flow hoạt động:**
+```
+1. User tạo/edit ghi chú và chọn file đính kèm
+2. Upload: supabase.storage.from('task-note-attachments').upload(...)
+3. Insert vào task_note_attachments
+4. Khi xóa note → cascade delete attachments + remove from storage
+```
+
+**Ai có quyền:**
+- SELECT: Group members
+- INSERT: Task assignees hoặc Group leaders
+- DELETE: Task assignees hoặc Group leaders
+
+---
+
+##### 📁 BUCKET 5: `appeal-attachments`
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **Tên bucket** | `appeal-attachments` |
+| **Public/Private** | PUBLIC |
+| **Mục đích** | Minh chứng đính kèm khi khiếu nại điểm |
+| **Giới hạn file** | Max 5MB/file |
+| **Liên kết DB** | `appeal_attachments.file_path`, `appeal_attachments.file_name`, `appeal_attachments.storage_name` |
+
+**Naming Convention:**
+```
+{user_id}/{appeal_id}/{timestamp}_{filename}.{extension}
+```
+
+**Ví dụ path thực tế:**
+```
+user123/appeal456/1706198400000_evidence.pdf
+```
+
+**Component sử dụng:**
+- `src/components/scores/ProcessScores.tsx` - Tạo khiếu nại + upload file
+- `src/components/scores/AppealReviewDialog.tsx` - Review khiếu nại + xem file
+
+**Flow hoạt động:**
+```
+1. User gửi khiếu nại với file minh chứng
+2. Upload: supabase.storage.from('appeal-attachments').upload(...)
+3. Insert vào appeal_attachments
+4. Leader/Admin review: tạo signed URL để xem/tải
+```
+
+**Ai có quyền:**
+- SELECT: Owner khiếu nại hoặc Admin
+- INSERT: Authenticated users (chủ khiếu nại)
+- DELETE: Owner hoặc Admin
+
+---
+
+##### 📁 BUCKET 6: `project-resources`
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **Tên bucket** | `project-resources` |
+| **Public/Private** | PUBLIC |
+| **Mục đích** | Tài liệu dự án, file chia sẻ trong nhóm |
+| **Giới hạn file** | Max 50MB/file |
+| **Liên kết DB** | `project_resources.file_path`, `project_resources.storage_name`, `project_resources.folder_id` |
+
+**Naming Convention:**
+```
+{group_id}/{timestamp}-{random}.{extension}
+```
+
+**Ví dụ path thực tế:**
+```
+group123/1706198400000-a7b2c3.docx
+```
+
+**Component sử dụng:**
+- `src/components/ProjectResources.tsx` - Quản lý tài liệu nhóm
+
+**Categories hỗ trợ:**
+| Value | Label | Màu |
+|-------|-------|-----|
+| `general` | Tài liệu chung | Blue |
+| `template` | Mẫu/Template | Purple |
+| `reference` | Tham khảo | Green |
+| `guide` | Hướng dẫn | Orange |
+| `plugin` | Plugin/Công cụ | Pink |
+
+**Flow hoạt động:**
+```
+1. Leader upload file → chọn category, mô tả
+2. Upload: supabase.storage.from('project-resources').upload(...)
+3. Get public URL
+4. Insert vào project_resources với folder_id (nếu có)
+5. Có thể tổ chức vào resource_folders
+```
+
+**Ai có quyền:**
+- SELECT: Tất cả (public URL) hoặc Group members (qua DB)
+- INSERT: Group leaders
+- DELETE: Group leaders hoặc Admin
+
+---
+
+#### 3.6.3 TẠO BUCKETS (SQL)
 
 ```sql
 -- =============================================
 -- BƯỚC 6: TẠO STORAGE BUCKETS
 -- =============================================
+-- Chạy trong SQL Editor của Supabase Dashboard
 
-INSERT INTO storage.buckets (id, name, public) 
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) 
 VALUES 
-  ('avatars', 'avatars', true),
-  ('group-images', 'group-images', true),
-  ('task-submissions', 'task-submissions', true),
-  ('task-note-attachments', 'task-note-attachments', true),
-  ('appeal-attachments', 'appeal-attachments', true),
-  ('project-resources', 'project-resources', true)
-ON CONFLICT (id) DO NOTHING;
+  ('avatars', 'avatars', true, 2097152, ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp']),
+  ('group-images', 'group-images', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp']),
+  ('task-submissions', 'task-submissions', true, 104857600, NULL),
+  ('task-note-attachments', 'task-note-attachments', true, 10485760, NULL),
+  ('appeal-attachments', 'appeal-attachments', true, 5242880, NULL),
+  ('project-resources', 'project-resources', true, 52428800, NULL)
+ON CONFLICT (id) DO UPDATE SET
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
 ```
 
-#### 3.6.2 Storage Policies
+**Giải thích:**
+- `file_size_limit`: Bytes (2097152 = 2MB, 104857600 = 100MB)
+- `allowed_mime_types`: NULL = cho phép tất cả loại file
+- `public = true`: Cho phép truy cập public URL
+
+---
+
+#### 3.6.4 STORAGE POLICIES (SQL)
 
 ```sql
 -- =============================================
--- STORAGE POLICIES
+-- STORAGE POLICIES - CHI TIẾT
 -- =============================================
 
--- AVATARS
-CREATE POLICY "avatars_select" ON storage.objects FOR SELECT
-USING (bucket_id = 'avatars');
+-- ========== AVATARS ==========
+-- Ai cũng có thể xem avatar (public)
+CREATE POLICY "avatars_public_select" ON storage.objects 
+FOR SELECT USING (bucket_id = 'avatars');
 
-CREATE POLICY "avatars_insert" ON storage.objects FOR INSERT
-WITH CHECK (
+-- Chỉ owner mới upload được avatar của mình
+CREATE POLICY "avatars_owner_insert" ON storage.objects 
+FOR INSERT WITH CHECK (
   bucket_id = 'avatars' 
   AND auth.uid()::text = (storage.foldername(name))[1]
 );
 
-CREATE POLICY "avatars_update" ON storage.objects FOR UPDATE
-USING (
+-- Chỉ owner mới update được
+CREATE POLICY "avatars_owner_update" ON storage.objects 
+FOR UPDATE USING (
   bucket_id = 'avatars' 
   AND auth.uid()::text = (storage.foldername(name))[1]
 );
 
-CREATE POLICY "avatars_delete" ON storage.objects FOR DELETE
-USING (
+-- Chỉ owner mới xóa được
+CREATE POLICY "avatars_owner_delete" ON storage.objects 
+FOR DELETE USING (
   bucket_id = 'avatars' 
   AND auth.uid()::text = (storage.foldername(name))[1]
 );
 
--- GROUP-IMAGES
-CREATE POLICY "group_images_select" ON storage.objects FOR SELECT
-USING (bucket_id = 'group-images');
+-- ========== GROUP-IMAGES ==========
+-- Ai cũng có thể xem (public)
+CREATE POLICY "group_images_public_select" ON storage.objects 
+FOR SELECT USING (bucket_id = 'group-images');
 
-CREATE POLICY "group_images_insert" ON storage.objects FOR INSERT
-WITH CHECK (
+-- Chỉ leader của nhóm mới upload được
+CREATE POLICY "group_images_leader_insert" ON storage.objects 
+FOR INSERT WITH CHECK (
   bucket_id = 'group-images' 
   AND public.is_group_leader(auth.uid(), (storage.foldername(name))[1]::uuid)
 );
 
--- TASK-SUBMISSIONS
-CREATE POLICY "submissions_select" ON storage.objects FOR SELECT
-USING (bucket_id = 'task-submissions');
-
-CREATE POLICY "submissions_insert" ON storage.objects FOR INSERT
-WITH CHECK (
-  bucket_id = 'task-submissions'
-  AND auth.role() = 'authenticated'
+-- Chỉ leader mới update được
+CREATE POLICY "group_images_leader_update" ON storage.objects 
+FOR UPDATE USING (
+  bucket_id = 'group-images' 
+  AND public.is_group_leader(auth.uid(), (storage.foldername(name))[1]::uuid)
 );
 
-CREATE POLICY "submissions_delete" ON storage.objects FOR DELETE
-USING (
-  bucket_id = 'task-submissions'
+-- Leader hoặc Admin mới xóa được
+CREATE POLICY "group_images_leader_delete" ON storage.objects 
+FOR DELETE USING (
+  bucket_id = 'group-images' 
   AND (
-    auth.uid()::text = (storage.foldername(name))[3]
+    public.is_group_leader(auth.uid(), (storage.foldername(name))[1]::uuid)
     OR public.is_admin(auth.uid())
   )
 );
 
--- PROJECT-RESOURCES
-CREATE POLICY "resources_select" ON storage.objects FOR SELECT
-USING (bucket_id = 'project-resources');
+-- ========== TASK-SUBMISSIONS ==========
+-- Ai cũng có thể xem (để member cùng nhóm xem được)
+CREATE POLICY "submissions_public_select" ON storage.objects 
+FOR SELECT USING (bucket_id = 'task-submissions');
 
-CREATE POLICY "resources_insert" ON storage.objects FOR INSERT
-WITH CHECK (
+-- Authenticated users có thể upload
+CREATE POLICY "submissions_auth_insert" ON storage.objects 
+FOR INSERT WITH CHECK (
+  bucket_id = 'task-submissions'
+  AND auth.role() = 'authenticated'
+);
+
+-- Authenticated users có thể update file của mình
+CREATE POLICY "submissions_auth_update" ON storage.objects 
+FOR UPDATE USING (
+  bucket_id = 'task-submissions'
+  AND auth.role() = 'authenticated'
+);
+
+-- Owner hoặc Admin mới xóa được (user_id là folder đầu tiên)
+CREATE POLICY "submissions_owner_delete" ON storage.objects 
+FOR DELETE USING (
+  bucket_id = 'task-submissions'
+  AND (
+    auth.uid()::text = (storage.foldername(name))[1]
+    OR public.is_admin(auth.uid())
+  )
+);
+
+-- ========== TASK-NOTE-ATTACHMENTS ==========
+CREATE POLICY "note_attachments_select" ON storage.objects 
+FOR SELECT USING (bucket_id = 'task-note-attachments');
+
+CREATE POLICY "note_attachments_insert" ON storage.objects 
+FOR INSERT WITH CHECK (
+  bucket_id = 'task-note-attachments'
+  AND auth.role() = 'authenticated'
+);
+
+CREATE POLICY "note_attachments_update" ON storage.objects 
+FOR UPDATE USING (
+  bucket_id = 'task-note-attachments'
+  AND auth.role() = 'authenticated'
+);
+
+CREATE POLICY "note_attachments_delete" ON storage.objects 
+FOR DELETE USING (
+  bucket_id = 'task-note-attachments'
+  AND auth.role() = 'authenticated'
+);
+
+-- ========== APPEAL-ATTACHMENTS ==========
+CREATE POLICY "appeal_attachments_select" ON storage.objects 
+FOR SELECT USING (bucket_id = 'appeal-attachments');
+
+CREATE POLICY "appeal_attachments_insert" ON storage.objects 
+FOR INSERT WITH CHECK (
+  bucket_id = 'appeal-attachments'
+  AND auth.role() = 'authenticated'
+);
+
+CREATE POLICY "appeal_attachments_delete" ON storage.objects 
+FOR DELETE USING (
+  bucket_id = 'appeal-attachments'
+  AND (
+    auth.uid()::text = (storage.foldername(name))[1]
+    OR public.is_admin(auth.uid())
+  )
+);
+
+-- ========== PROJECT-RESOURCES ==========
+-- Public select (có public URL)
+CREATE POLICY "resources_public_select" ON storage.objects 
+FOR SELECT USING (bucket_id = 'project-resources');
+
+-- Group members có thể upload
+CREATE POLICY "resources_member_insert" ON storage.objects 
+FOR INSERT WITH CHECK (
   bucket_id = 'project-resources'
   AND public.is_group_member(auth.uid(), (storage.foldername(name))[1]::uuid)
 );
 
-CREATE POLICY "resources_delete" ON storage.objects FOR DELETE
-USING (
+-- Leader hoặc Admin mới xóa được
+CREATE POLICY "resources_leader_delete" ON storage.objects 
+FOR DELETE USING (
   bucket_id = 'project-resources'
   AND (
     public.is_group_leader(auth.uid(), (storage.foldername(name))[1]::uuid)
@@ -1732,16 +2079,53 @@ USING (
 );
 ```
 
-#### 3.6.3 Naming Convention
+---
 
-| Bucket | Path Pattern | Ví dụ |
-|--------|--------------|-------|
-| `avatars` | `{user_id}/{timestamp}.{ext}` | `a1b2c3/1706198400000.png` |
-| `group-images` | `{group_id}/{timestamp}.{ext}` | `x1y2z3/1706198400000.jpg` |
-| `task-submissions` | `{group_id}/{task_id}/{user_id}/{timestamp}_{filename}` | `grp1/task1/usr1/1706198400000_report.pdf` |
-| `task-note-attachments` | `{note_id}/{timestamp}_{filename}` | `note1/1706198400000_image.png` |
-| `appeal-attachments` | `{appeal_id}/{timestamp}_{filename}` | `appeal1/1706198400000_evidence.pdf` |
-| `project-resources` | `{group_id}/{folder_id?}/{timestamp}_{filename}` | `grp1/folder1/1706198400000_document.docx` |
+#### 3.6.5 LIÊN KẾT DATABASE VÀ STORAGE
+
+| Bucket | Table liên kết | Cột lưu path | Cột lưu info khác |
+|--------|---------------|--------------|-------------------|
+| `avatars` | `profiles` | `avatar_url` (full URL) | - |
+| `group-images` | `groups` | `image_url` (full URL) | - |
+| `task-submissions` | `submission_history` | `file_path` | `file_name`, `file_size` |
+| `task-note-attachments` | `task_note_attachments` | `file_path` | `file_name`, `storage_name`, `file_size` |
+| `appeal-attachments` | `appeal_attachments` | `file_path` | `file_name`, `storage_name`, `file_size` |
+| `project-resources` | `project_resources` | `file_path` (full URL) | `storage_name`, `file_size`, `file_type`, `folder_id` |
+
+---
+
+#### 3.6.6 NAMING CONVENTION CHI TIẾT
+
+| Bucket | Pattern | Giải thích | Ví dụ thực tế |
+|--------|---------|------------|---------------|
+| `avatars` | `{user_id}/{timestamp}.{ext}` | User ID là folder, timestamp để tránh cache | `a1b2c3d4/1706198400000.png` |
+| `group-images` | `{group_id}/{timestamp}.{ext}` | Group ID là folder | `x1y2z3a4/1706198400000.jpg` |
+| `task-submissions` | `{user_id}/{task_id}/{uuid}.{ext}` | UUID để tên unique, giữ extension gốc | `user123/task456/550e8400-e29b.pdf` |
+| `task-note-attachments` | `{task_id}/{note_id}/{timestamp}_{filename}` | Giữ tên gốc file | `task1/note2/1706198400000_screen.png` |
+| `appeal-attachments` | `{user_id}/{appeal_id}/{timestamp}_{filename}` | User ID đầu tiên để RLS check | `user1/appeal2/1706198400_proof.pdf` |
+| `project-resources` | `{group_id}/{timestamp}-{random}.{ext}` | Random suffix tránh trùng | `grp1/1706198400000-a7b2c3.docx` |
+
+---
+
+#### 3.6.7 LƯU Ý QUAN TRỌNG VỀ STORAGE
+
+⚠️ **KHÔNG BAO GIỜ:**
+- Lưu file trực tiếp vào database (base64, bytea)
+- Dùng local file system
+- Dùng service storage khác (S3, Firebase Storage...)
+
+✅ **LUÔN LUÔN:**
+- Sử dụng Supabase Storage
+- Validate file size trước khi upload
+- Validate file type (nếu cần)
+- Xóa file từ storage khi xóa record trong database
+- Dùng UUID hoặc timestamp trong filename để tránh trùng
+
+📝 **KHI THAY ĐỔI STORAGE:**
+1. Cập nhật phần này trong file SETUP_REBUILD_WEBSITE_GUIDE.md
+2. Ghi rõ: ngày thay đổi, bucket nào, thay đổi gì, lý do
+3. Cập nhật component liên quan (nếu có)
+4. Test lại flow upload/download/delete
 
 ---
 
@@ -2396,17 +2780,41 @@ VALUES ('your-user-id', 'admin');
 
 ## 16. CHANGELOG
 
+### 16.1 General Changelog
+
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.1 | 04/02/2026 | **STORAGE UPDATE**: Chi tiết hóa toàn bộ phần Supabase Storage với đầy đủ bucket, naming convention, RLS policies, liên kết DB |
 | 3.0 | 04/02/2026 | Full detailed guide |
 | 2.0 | 04/02/2026 | Added Edge Functions, Design System |
 | 1.0 | 04/02/2026 | Initial version |
+
+### 16.2 Storage Changelog
+
+> 📝 **BẮT BUỘC:** Mọi thay đổi về Storage phải ghi vào bảng này
+
+| Date | Bucket | Action | Chi tiết thay đổi | Người thực hiện |
+|------|--------|--------|-------------------|-----------------|
+| 04/02/2026 | `avatars` | CREATE | Tạo bucket public, 2MB limit, chỉ image | System |
+| 04/02/2026 | `group-images` | CREATE | Tạo bucket public, 5MB limit, chỉ image | System |
+| 04/02/2026 | `task-submissions` | CREATE | Tạo bucket public, 100MB limit, tất cả file | System |
+| 04/02/2026 | `task-note-attachments` | CREATE | Tạo bucket public, 10MB limit | System |
+| 04/02/2026 | `appeal-attachments` | CREATE | Tạo bucket public, 5MB limit | System |
+| 04/02/2026 | `project-resources` | CREATE | Tạo bucket public, 50MB limit | System |
+
+**Các action có thể:**
+- `CREATE`: Tạo bucket mới
+- `DELETE`: Xóa bucket
+- `UPDATE_POLICY`: Đổi RLS policy
+- `UPDATE_LIMIT`: Đổi size/type limit
+- `UPDATE_PUBLIC`: Đổi public/private
+- `RENAME`: Đổi tên bucket
 
 ---
 
 > **⚠️ CẬP NHẬT FILE NÀY** mỗi khi có thay đổi về:
 > - Database schema
-> - Storage buckets
+> - **Storage buckets** (QUAN TRỌNG - ghi vào Storage Changelog)
 > - Auth configuration
 > - RLS policies
 > - Edge Functions
