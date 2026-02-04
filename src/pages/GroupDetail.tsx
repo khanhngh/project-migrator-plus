@@ -459,33 +459,33 @@ export default function GroupDetail() {
                             
                             {/* Right Column - Assignees (4 cols) */}
                             <div className="col-span-4 flex flex-col bg-muted/20">
-                              <div className="px-2 py-1.5 border-b bg-success/5">
-                                <div className="flex items-center gap-1.5">
-                                  <Users className="w-3.5 h-3.5 text-success" />
-                                  <span className="text-[10px] font-semibold uppercase text-success">Người phụ trách</span>
+                              <div className="px-3 py-2 border-b bg-success/5">
+                                <div className="flex items-center gap-2">
+                                  <Users className="w-4 h-4 text-success" />
+                                  <span className="text-xs font-semibold uppercase text-success">Người phụ trách</span>
                                   {newTaskAssignees.length > 0 && (
-                                    <span className="ml-auto text-[9px] px-1 py-0.5 rounded-full bg-success/10 text-success font-medium">
+                                    <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">
                                       {newTaskAssignees.length}
                                     </span>
                                   )}
                                 </div>
                               </div>
                               
-                              <div className="flex-1 overflow-y-auto p-1.5">
-                                <div className="space-y-0.5">
+                              <div className="flex-1 overflow-y-auto p-2">
+                                <div className="space-y-1">
                                   {members.length === 0 ? (
-                                    <div className="text-center py-3 text-muted-foreground">
-                                      <Users className="w-4 h-4 mx-auto mb-1 opacity-30" />
-                                      <p className="text-[9px]">Chưa có thành viên</p>
+                                    <div className="text-center py-6 text-muted-foreground">
+                                      <Users className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                                      <p className="text-xs">Chưa có thành viên</p>
                                     </div>
                                   ) : (
                                     members.map(m => (
                                       <div 
                                         key={m.id} 
-                                        className={`flex items-center gap-1 p-1 rounded cursor-pointer transition-all ${
+                                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
                                           newTaskAssignees.includes(m.user_id) 
                                             ? 'bg-success/10 ring-1 ring-success/40' 
-                                            : 'hover:bg-background'
+                                            : 'hover:bg-background border border-transparent hover:border-border'
                                         }`}
                                         onClick={() => {
                                           if (newTaskAssignees.includes(m.user_id)) {
@@ -499,14 +499,29 @@ export default function GroupDetail() {
                                           id={`a-${m.user_id}`} 
                                           checked={newTaskAssignees.includes(m.user_id)} 
                                           onCheckedChange={c => c ? setNewTaskAssignees([...newTaskAssignees, m.user_id]) : setNewTaskAssignees(newTaskAssignees.filter(id => id !== m.user_id))} 
-                                          className="h-3 w-3"
+                                          className="h-4 w-4"
                                         />
-                                        <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-[7px] font-bold text-primary shrink-0">
-                                          {m.profiles?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                        {m.profiles?.avatar_url ? (
+                                          <img 
+                                            src={m.profiles.avatar_url} 
+                                            alt={m.profiles.full_name || ''} 
+                                            className="w-8 h-8 rounded-full object-cover border-2 border-background shrink-0"
+                                          />
+                                        ) : (
+                                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0 border-2 border-background">
+                                            {m.profiles?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                          </div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                          <label htmlFor={`a-${m.user_id}`} className="text-xs font-medium cursor-pointer block truncate">
+                                            {m.profiles?.full_name}
+                                          </label>
+                                          <p className="text-[10px] text-muted-foreground">{m.profiles?.student_id}</p>
                                         </div>
-                                        <span className="text-[9px] font-medium truncate flex-1">{m.profiles?.full_name}</span>
                                         {m.role === 'leader' && (
-                                          <span className="text-[7px] px-0.5 rounded bg-warning/10 text-warning shrink-0">L</span>
+                                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/30 font-medium shrink-0">
+                                            Leader
+                                          </span>
                                         )}
                                       </div>
                                     ))
