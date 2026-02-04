@@ -617,6 +617,59 @@ export type Database = {
           },
         ]
       }
+      project_resources: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          file_path: string
+          file_size: number
+          file_type: string | null
+          group_id: string
+          id: string
+          name: string
+          storage_name: string
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          file_path: string
+          file_size?: number
+          file_type?: string | null
+          group_id: string
+          id?: string
+          name: string
+          storage_name: string
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          file_path?: string
+          file_size?: number
+          file_type?: string | null
+          group_id?: string
+          id?: string
+          name?: string
+          storage_name?: string
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_resources_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       score_adjustment_history: {
         Row: {
           adjusted_by: string
