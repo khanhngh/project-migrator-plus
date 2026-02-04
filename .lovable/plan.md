@@ -1,150 +1,161 @@
 
-# Kế hoạch: Tích hợp Google Drive đơn giản (Chỉ cần đồng ý)
+# Kế hoạch: Upload file trực tiếp lên Google Drive của User
 
 ## Tổng quan
 
-Thay vì yêu cầu Admin cấu hình phức tạp (tạo Service Account, Cloud Console...), tôi sẽ xây dựng hệ thống cho phép **user tự kết nối Google Drive cá nhân** với một nút đồng ý đơn giản. Khi đồng ý, hệ thống sẽ:
-- Tự động backup file lên Google Drive của người dùng
-- Hoặc cho phép Admin đăng nhập Google một lần để backup tập trung
+Thay vì lưu file vào Supabase Storage (giới hạn dung lượng), hệ thống sẽ cho phép user kết nối Google Drive cá nhân và upload file trực tiếp lên đó.
 
 ---
 
-## Phương án được chọn: OAuth đơn giản với Checkbox đồng ý
-
-### Luồng người dùng
+## Luồng hoạt động mới
 
 ```text
-┌────────────────────────────────────────────────────────────────┐
-│                     ADMIN BACKUP PAGE                          │
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  ☐ Đồng ý kết nối Google Drive để backup file            │  │
-│  │                                                          │  │
-│  │  Khi đồng ý, bạn cho phép hệ thống:                      │  │
-│  │  • Tạo folder "TaskFlow Backup" trên Drive của bạn       │  │
-│  │  • Tự động upload file backup vào folder này             │  │
-│  │  • Truy cập chỉ đọc thông tin tài khoản Google           │  │
-│  │                                                          │  │
-│  │  [🔗 Kết nối Google Drive]                               │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                                                                │
-│  Sau khi kết nối:                                              │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  ✅ Đã kết nối: admin@gmail.com                          │  │
-│  │  📁 Folder: TaskFlow Backup                              │  │
-│  │  📊 Đã backup: 15 file (245 MB)                          │  │
-│  │                                                          │  │
-│  │  [Ngắt kết nối]  [Backup ngay]  [Xem trên Drive]         │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                                                                │
-└────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    KHI USER NỘP BÀI                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   User chọn file                                                │
+│         │                                                       │
+│         ▼                                                       │
+│   ┌─────────────────────────────────────────────────────┐       │
+│   │  Đã kết nối Google Drive?                           │       │
+│   └─────────────────┬───────────────────────────────────┘       │
+│                     │                                           │
+│         ┌───────────┴───────────┐                               │
+│         │                       │                               │
+│         ▼ CHƯA                  ▼ RỒI                           │
+│   ┌───────────────┐       ┌─────────────────────┐               │
+│   │ Upload lên    │       │ Upload lên          │               │
+│   │ Supabase      │       │ Google Drive        │               │
+│   │ Storage       │       │ của user            │               │
+│   │ (như cũ)      │       └─────────┬───────────┘               │
+│   └───────┬───────┘                 │                           │
+│           │                         │                           │
+│           ▼                         ▼                           │
+│   ┌──────────────────────────────────────────────┐              │
+│   │  Lưu link file (storage hoặc Drive)          │              │
+│   │  vào database                                │              │
+│   └──────────────────────────────────────────────┘              │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Chi tiết triển khai
+## Trải nghiệm người dùng
 
-### Bước 1: Bật Google OAuth trong Authentication
+### Lần đầu sử dụng
 
-Sử dụng tính năng **Google Sign-In** có sẵn trong hệ thống backend để xác thực và lấy quyền truy cập Drive.
+1. User vào nộp bài, thấy vùng upload file
+2. Có thông báo: "Kết nối Google Drive để lưu file không giới hạn dung lượng"
+3. User nhấn nút "Kết nối Google Drive"
+4. Popup đăng nhập Google xuất hiện
+5. User đồng ý cấp quyền → Hoàn tất
 
-### Bước 2: Tạo Edge Function `google-drive-backup`
+### Sau khi kết nối
 
-Chức năng:
-- Nhận access token từ Google OAuth
-- Tạo folder "TaskFlow Backup" nếu chưa có
-- Upload file từ storage lên Drive
-- Trả về link public của file
-
-### Bước 3: Cập nhật AdminBackupRestore component
-
-Thêm section mới:
-- Nút "Kết nối Google Drive" (sử dụng Google OAuth)
-- Hiển thị trạng thái kết nối
-- Nút backup thủ công hoặc tự động
-- Xem danh sách file đã backup
-
-### Bước 4: Lưu trữ token và trạng thái
-
-Tạo bảng `google_drive_connections`:
-- Lưu refresh token để tự động làm mới
-- Lưu folder ID trên Drive
-- Tracking file đã backup
+1. User chọn file để upload
+2. File tự động upload lên Google Drive của user
+3. Hiển thị: "Đã lưu vào Google Drive của bạn"
+4. Link file Drive được lưu vào hệ thống
 
 ---
 
-## Database schema mới
+## Các bước triển khai
+
+### Bước 1: Xóa migration cũ và tạo schema mới
+
+Xóa hoặc sửa migration `google_drive_connections` hiện tại để phù hợp với flow mới (lưu token theo từng user, không chỉ admin).
+
+### Bước 2: Yêu cầu Google OAuth credentials
+
+Bạn cần tạo OAuth Client ID từ Google Cloud Console với scope:
+- `https://www.googleapis.com/auth/drive.file` (chỉ truy cập file do app tạo)
+
+### Bước 3: Tạo Edge Function xử lý Google Drive
+
+**`supabase/functions/google-drive-upload/index.ts`**
+
+Chức năng:
+- `action: connect` - Đổi authorization code lấy access/refresh token
+- `action: upload` - Upload file lên Drive của user
+- `action: disconnect` - Xóa kết nối
+- `action: status` - Kiểm tra trạng thái kết nối
+
+### Bước 4: Cập nhật MultiFileUploadSubmission
+
+Thêm logic:
+1. Kiểm tra user đã kết nối Drive chưa
+2. Nếu rồi → Upload lên Drive thay vì Storage
+3. Nếu chưa → Upload lên Storage như cũ + hiện gợi ý kết nối
+
+### Bước 5: Tạo component GoogleDriveConnect
+
+Nút kết nối/ngắt kết nối Google Drive, hiển thị trong:
+- Dialog nộp bài (TaskSubmissionDialog)
+- Trang thông tin cá nhân (PersonalInfo)
+
+---
+
+## Database schema (điều chỉnh)
 
 ```sql
--- Bảng lưu kết nối Google Drive của user
-CREATE TABLE google_drive_connections (
+-- Bảng lưu kết nối Google Drive của MỖI user
+CREATE TABLE user_drive_connections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   google_email TEXT NOT NULL,
-  refresh_token TEXT NOT NULL,  -- Encrypted
-  folder_id TEXT,               -- ID folder trên Drive
-  folder_name TEXT DEFAULT 'TaskFlow Backup',
+  access_token TEXT,          -- Có thể null (hết hạn)
+  refresh_token TEXT NOT NULL, -- Dùng để làm mới access_token
+  folder_id TEXT,              -- Folder "TaskFlow" trên Drive user
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(user_id)
 );
 
--- Bảng tracking file đã backup
-CREATE TABLE drive_file_backups (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  connection_id UUID REFERENCES google_drive_connections(id) ON DELETE CASCADE,
-  original_bucket TEXT NOT NULL,
-  original_path TEXT NOT NULL,
-  drive_file_id TEXT NOT NULL,
-  drive_url TEXT NOT NULL,
-  file_name TEXT NOT NULL,
-  file_size BIGINT,
-  backed_up_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(connection_id, original_bucket, original_path)
-);
+-- RLS: User chỉ xem/quản lý kết nối của chính mình
+ALTER TABLE user_drive_connections ENABLE ROW LEVEL SECURITY;
 
--- RLS policies
-ALTER TABLE google_drive_connections ENABLE ROW LEVEL SECURITY;
-ALTER TABLE drive_file_backups ENABLE ROW LEVEL SECURITY;
-
--- Chỉ admin có thể xem/quản lý
-CREATE POLICY "Admins can manage drive connections"
-  ON google_drive_connections FOR ALL
-  USING (public.is_admin(auth.uid()));
-
-CREATE POLICY "Admins can manage drive backups"
-  ON drive_file_backups FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM google_drive_connections c
-      WHERE c.id = drive_file_backups.connection_id
-      AND public.is_admin(auth.uid())
-    )
-  );
+CREATE POLICY "Users manage own drive connection"
+  ON user_drive_connections FOR ALL
+  USING (auth.uid() = user_id);
 ```
 
 ---
 
-## Edge Function: google-drive-backup
+## Ưu điểm
 
-```text
-Endpoint: POST /google-drive-backup
+| Tiêu chí | Mô tả |
+|----------|-------|
+| Tiết kiệm storage | File lưu trên Drive của user, không tốn dung lượng hệ thống |
+| Không giới hạn | User có Drive 15GB miễn phí, hoặc nhiều hơn nếu UEH |
+| Tùy chọn | User không muốn kết nối vẫn dùng Storage như cũ |
+| Đồng bộ | File nằm trong Drive cá nhân, user dễ quản lý |
 
-Input:
-{
-  "action": "connect" | "backup" | "disconnect" | "list",
-  "google_code": "..." (for connect),
-  "file_paths": [...] (for backup)
-}
+---
 
-Output:
-{
-  "success": true,
-  "data": { ... }
-}
-```
+## Nhược điểm và giải pháp
+
+| Nhược điểm | Giải pháp |
+|------------|-----------|
+| Cần Google Client ID/Secret | Một lần cấu hình, sau đó tự động |
+| User phải đăng nhập Google | Tùy chọn, không bắt buộc |
+| Token có thể hết hạn | Auto-refresh bằng refresh_token |
+
+---
+
+## Yêu cầu từ bạn
+
+Để triển khai, bạn cần:
+
+1. **Tạo Google Cloud Project** (miễn phí) tại console.cloud.google.com
+2. **Bật Google Drive API**
+3. **Tạo OAuth 2.0 Client ID** (Web application)
+   - Authorized redirect URI: `https://vwfexrhbnnuyqnkgqdml.supabase.co/functions/v1/google-drive-upload`
+4. **Cung cấp**:
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
 
 ---
 
@@ -152,43 +163,19 @@ Output:
 
 | File | Hành động | Mô tả |
 |------|-----------|-------|
-| `supabase/functions/google-drive-backup/index.ts` | Tạo mới | Edge function xử lý OAuth và upload |
-| `src/components/GoogleDriveBackup.tsx` | Tạo mới | Component quản lý kết nối Drive |
-| `src/components/AdminBackupRestore.tsx` | Sửa | Tích hợp Google Drive section |
-| `src/pages/AdminBackup.tsx` | Giữ nguyên | Không đổi |
-| Database migration | Tạo mới | Thêm 2 bảng mới |
+| Database migration | Sửa | Đổi schema phù hợp flow mới |
+| `supabase/functions/google-drive-upload/index.ts` | Tạo mới | Edge function xử lý OAuth + upload |
+| `src/components/GoogleDriveConnect.tsx` | Tạo mới | Nút kết nối Drive |
+| `src/components/MultiFileUploadSubmission.tsx` | Sửa | Thêm logic upload lên Drive |
+| `src/components/TaskSubmissionDialog.tsx` | Sửa | Tích hợp nút kết nối Drive |
 
 ---
 
-## Yêu cầu từ bạn
+## Tóm tắt
 
-Để hoàn thành tích hợp, bạn chỉ cần:
+Đây là giải pháp để mỗi user tự quản lý file trên Google Drive cá nhân:
+- User kết nối 1 lần → sau đó tự động
+- Không bắt buộc, vẫn có fallback về Storage
+- Tiết kiệm dung lượng hệ thống đáng kể
 
-1. **Tạo Google Cloud Project** (miễn phí) tại console.cloud.google.com
-2. **Bật Google Drive API**
-3. **Tạo OAuth Client ID** (loại "Web application")
-4. **Cung cấp 2 thông tin**:
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
-
-Sau đó mọi thứ sẽ tự động - Admin chỉ cần **bấm nút "Kết nối Google Drive"** và đồng ý quyền truy cập.
-
----
-
-## Trải nghiệm người dùng cuối
-
-1. Admin vào trang Sao lưu & Khôi phục
-2. Thấy section "Backup lên Google Drive"
-3. Tick checkbox đồng ý điều khoản
-4. Bấm "Kết nối Google Drive"
-5. Đăng nhập Google và cho phép quyền
-6. Xong! Hệ thống tự động backup file
-
----
-
-## Lưu ý bảo mật
-
-- Refresh token được mã hóa trước khi lưu
-- Chỉ Admin mới có quyền kết nối/quản lý
-- User không thể truy cập Drive của Admin
-- Có thể ngắt kết nối bất cứ lúc nào
+Bạn có muốn tôi hướng dẫn chi tiết cách lấy Google Client ID/Secret không?
