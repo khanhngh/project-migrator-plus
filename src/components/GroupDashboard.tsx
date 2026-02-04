@@ -23,7 +23,7 @@ interface GroupDashboardProps {
 }
 
 export default function GroupDashboard({ tasks, members, stages, groupId }: GroupDashboardProps) {
-  const { getPresenceStatus } = useUserPresence(groupId);
+  const { getPresenceStatus, presenceMap, isConnected } = useUserPresence(groupId);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [profileRole, setProfileRole] = useState<'admin' | 'leader' | 'member'>('member');
@@ -55,9 +55,13 @@ export default function GroupDashboard({ tasks, members, stages, groupId }: Grou
     return deadline >= now && deadline <= threeDays;
   });
 
-  // Count members by presence status
-  const onlineMembers = members.filter(m => getPresenceStatus(m.user_id) === 'online').length;
-  const idleMembers = members.filter(m => getPresenceStatus(m.user_id) === 'idle').length;
+  // Count members by presence status - only count if presence is connected
+  const onlineMembers = isConnected 
+    ? members.filter(m => getPresenceStatus(m.user_id) === 'online').length 
+    : 0;
+  const idleMembers = isConnected 
+    ? members.filter(m => getPresenceStatus(m.user_id) === 'idle').length 
+    : 0;
 
   const handleMemberClick = (member: GroupMember) => {
     if (member.profiles) {
@@ -215,24 +219,28 @@ export default function GroupDashboard({ tasks, members, stages, groupId }: Grou
                 <Users className="w-5 h-5 text-primary" />
                 Thành viên ({members.length})
               </div>
-              <div className="flex items-center gap-3 text-sm font-normal">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-muted-foreground">{onlineMembers} online</span>
-                </span>
-                {idleMembers > 0 && (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-yellow-500" />
-                    <span className="text-muted-foreground">{idleMembers} idle</span>
-                  </span>
-                )}
-              </div>
+              {isConnected && (
+                <div className="flex items-center gap-3 text-sm font-normal">
+                  {onlineMembers > 0 && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                      <span className="text-muted-foreground">{onlineMembers} online</span>
+                    </span>
+                  )}
+                  {idleMembers > 0 && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-warning" />
+                      <span className="text-muted-foreground">{idleMembers} idle</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {members.slice(0, 12).map((member) => {
-                const status = getPresenceStatus(member.user_id);
+                const status = isConnected ? getPresenceStatus(member.user_id) : 'offline';
                 return (
                   <div 
                     key={member.id}
@@ -245,9 +253,11 @@ export default function GroupDashboard({ tasks, members, stages, groupId }: Grou
                         name={member.profiles?.full_name}
                         size="sm"
                       />
-                      <div className="absolute -bottom-0.5 -right-0.5">
-                        <UserPresenceIndicator status={status} size="xs" />
-                      </div>
+                      {isConnected && (
+                        <div className="absolute -bottom-0.5 -right-0.5">
+                          <UserPresenceIndicator status={status} size="xs" />
+                        </div>
+                      )}
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-medium truncate max-w-24">
