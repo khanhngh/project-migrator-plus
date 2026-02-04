@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { formatDeadlineVN, parseLocalDateTime } from '@/lib/datetime';
 import type { Stage, Task, TaskAssignment } from '@/types/database';
+import ResourceLinkRenderer from '@/components/ResourceLinkRenderer';
 
 interface PublicTaskListViewProps {
   stages: Stage[];
@@ -240,7 +241,7 @@ export default function PublicTaskListView({ stages, tasks, groupId }: PublicTas
         <CollapsibleContent>
           <div className="mt-2 ml-4 p-3 rounded-lg bg-muted/40 border-l-2 border-primary/30 space-y-3">
             {task.description && (
-              <p className="text-sm text-muted-foreground">{task.description}</p>
+              <div className="text-sm text-muted-foreground"><ResourceLinkRenderer content={task.description} /></div>
             )}
             
             {task.task_assignments && task.task_assignments.length > 0 && (
@@ -293,7 +294,7 @@ export default function PublicTaskListView({ stages, tasks, groupId }: PublicTas
         
         {/* Description */}
         {task.description && (
-          <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
+          <div className="text-xs text-muted-foreground line-clamp-2"><ResourceLinkRenderer content={task.description} /></div>
         )}
         
         {/* Meta: Deadline + Assignees */}

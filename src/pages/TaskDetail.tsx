@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDeadlineVN } from '@/lib/datetime';
 import { ArrowLeft, Loader2, ExternalLink, Calendar, Clock, Save } from 'lucide-react';
 import type { Task, TaskAssignment, Profile, TaskStatus } from '@/types/database';
+import ResourceLinkRenderer from '@/components/ResourceLinkRenderer';
 
 export default function TaskDetail() {
   const { groupId, taskId } = useParams<{ groupId: string; taskId: string }>();
@@ -111,7 +112,7 @@ export default function TaskDetail() {
             <div className="flex items-start justify-between">
               <div>
                 <CardTitle className="text-2xl">{task.title}</CardTitle>
-                {task.description && <p className="text-muted-foreground mt-2">{task.description}</p>}
+                {task.description && <div className="text-muted-foreground mt-2"><ResourceLinkRenderer content={task.description} /></div>}
               </div>
               <Badge className={getStatusColor(task.status)}>{task.status === 'TODO' ? 'Chờ làm' : task.status === 'IN_PROGRESS' ? 'Đang làm' : task.status === 'DONE' ? 'Hoàn thành' : 'Đã duyệt'}</Badge>
             </div>
