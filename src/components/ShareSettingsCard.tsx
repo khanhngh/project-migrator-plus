@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Share2, Copy, ExternalLink, Users, Activity, Loader2, Lock, Unlock, Eye, RefreshCw } from 'lucide-react';
+import { Share2, Copy, ExternalLink, Users, Activity, Loader2, Lock, Unlock, Eye, RefreshCw, FolderOpen } from 'lucide-react';
 
 interface ShareSettingsCardProps {
   groupId: string;
@@ -14,6 +14,7 @@ interface ShareSettingsCardProps {
   shareToken: string | null;
   showMembersPublic: boolean;
   showActivityPublic: boolean;
+  showResourcesPublic?: boolean;
   onUpdate: () => void;
 }
 
@@ -30,6 +31,7 @@ export default function ShareSettingsCard({
   shareToken,
   showMembersPublic,
   showActivityPublic,
+  showResourcesPublic = true,
   onUpdate,
 }: ShareSettingsCardProps) {
   const { toast } = useToast();
@@ -38,13 +40,15 @@ export default function ShareSettingsCard({
   const [localShareToken, setLocalShareToken] = useState(shareToken);
   const [localShowMembers, setLocalShowMembers] = useState(showMembersPublic);
   const [localShowActivity, setLocalShowActivity] = useState(showActivityPublic);
+  const [localShowResources, setLocalShowResources] = useState(showResourcesPublic);
 
   useEffect(() => {
     setLocalIsPublic(isPublic);
     setLocalShareToken(shareToken);
     setLocalShowMembers(showMembersPublic);
     setLocalShowActivity(showActivityPublic);
-  }, [isPublic, shareToken, showMembersPublic, showActivityPublic]);
+    setLocalShowResources(showResourcesPublic);
+  }, [isPublic, shareToken, showMembersPublic, showActivityPublic, showResourcesPublic]);
 
   const publicLink = localShareToken 
     ? `${window.location.origin}/s/${localShareToken}` 
@@ -110,7 +114,7 @@ export default function ShareSettingsCard({
     }
   };
 
-  const handleUpdateVisibility = async (field: 'show_members_public' | 'show_activity_public', value: boolean) => {
+  const handleUpdateVisibility = async (field: 'show_members_public' | 'show_activity_public' | 'show_resources_public', value: boolean) => {
     try {
       const { error } = await supabase
         .from('groups')
@@ -121,8 +125,10 @@ export default function ShareSettingsCard({
 
       if (field === 'show_members_public') {
         setLocalShowMembers(value);
-      } else {
+      } else if (field === 'show_activity_public') {
         setLocalShowActivity(value);
+      } else if (field === 'show_resources_public') {
+        setLocalShowResources(value);
       }
       
       toast({ title: 'Đã cập nhật', description: 'Cài đặt hiển thị đã được lưu' });
@@ -262,6 +268,17 @@ export default function ShareSettingsCard({
                 <Switch
                   checked={localShowActivity}
                   onCheckedChange={(v) => handleUpdateVisibility('show_activity_public', v)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm">Hiển thị tài nguyên dự án</span>
+                </div>
+                <Switch
+                  checked={localShowResources}
+                  onCheckedChange={(v) => handleUpdateVisibility('show_resources_public', v)}
                 />
               </div>
             </div>

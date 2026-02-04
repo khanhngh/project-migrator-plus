@@ -246,6 +246,7 @@ export type Database = {
           short_id: string | null
           show_activity_public: boolean | null
           show_members_public: boolean | null
+          show_resources_public: boolean | null
           slug: string | null
           updated_at: string
           zalo_link: string | null
@@ -267,6 +268,7 @@ export type Database = {
           short_id?: string | null
           show_activity_public?: boolean | null
           show_members_public?: boolean | null
+          show_resources_public?: boolean | null
           slug?: string | null
           updated_at?: string
           zalo_link?: string | null
@@ -288,6 +290,7 @@ export type Database = {
           short_id?: string | null
           show_activity_public?: boolean | null
           show_members_public?: boolean | null
+          show_resources_public?: boolean | null
           slug?: string | null
           updated_at?: string
           zalo_link?: string | null
