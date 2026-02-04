@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 interface ResourceLinkRendererProps {
   content: string;
   className?: string;
+  /** max width for displayed file name inside the chip */
+  nameMaxWidth?: string;
 }
 
 function getFileIcon(fileName: string) {
@@ -86,7 +88,7 @@ function cleanFileName(name: string): string {
   return cleaned;
 }
 
-export default function ResourceLinkRenderer({ content, className }: ResourceLinkRendererProps) {
+export default function ResourceLinkRenderer({ content, className, nameMaxWidth = '180px' }: ResourceLinkRendererProps) {
   const navigate = useNavigate();
   
   if (!content) return null;
@@ -101,7 +103,8 @@ export default function ResourceLinkRenderer({ content, className }: ResourceLin
   const allMatches: MatchInfo[] = [];
   
   // Pattern 1: [#filename](url) - markdown style
-  const markdownRegex = /\[#([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+  // Also supports short references: [#name](res:<uuid>)
+  const markdownRegex = /\[#([^\]]+)\]\(([^)]+)\)/g;
   let match;
   while ((match = markdownRegex.exec(content)) !== null) {
     allMatches.push({
@@ -162,14 +165,18 @@ export default function ResourceLinkRenderer({ content, className }: ResourceLin
     
     // Clickable card/chip
     parts.push(
-      <button
+        <button
         key={`resource-${idx}`}
         type="button"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
           const params = new URLSearchParams();
-          params.set('url', m.url);
+            if (m.url.startsWith('res:')) {
+              params.set('rid', m.url.slice('res:'.length));
+            } else {
+              params.set('url', m.url);
+            }
           params.set('name', displayName);
           params.set('source', 'resource');
           navigate(`/file-preview?${params.toString()}`);
@@ -178,7 +185,7 @@ export default function ResourceLinkRenderer({ content, className }: ResourceLin
         title={`Xem: ${displayName}`}
       >
         {getFileIcon(displayName)}
-        <span className="max-w-[180px] truncate">{displayName}</span>
+          <span className="truncate" style={{ maxWidth: nameMaxWidth }}>{displayName}</span>
         <ExternalLink className="w-3 h-3 opacity-50" />
       </button>
     );

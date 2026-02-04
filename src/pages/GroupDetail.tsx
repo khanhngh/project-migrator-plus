@@ -479,6 +479,7 @@ export default function GroupDetail() {
                                   placeholder="Mô tả chi tiết yêu cầu, tài liệu tham khảo... (gõ # để chèn tài nguyên)" 
                                   className="bg-background/80 border-border/50 focus:border-primary/30" 
                                   fillHeight={true}
+                                  showPreview={true}
                                 />
                               </div>
                             </div>
