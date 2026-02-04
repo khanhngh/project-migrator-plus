@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +68,7 @@ import TaskSubmissionDialog from './TaskSubmissionDialog';
 import SubmissionHistoryPopup from './SubmissionHistoryPopup';
 import SubmissionButton from './SubmissionButton';
 import TaskScoringDialog from './scores/TaskScoringDialog';
+import TaskFilters, { TaskFilters as TaskFiltersType, defaultTaskFilters } from './TaskFilters';
 import type { TaskScore } from '@/types/processScores';
 
 // Stage color helper - returns a consistent color for each stage index
@@ -679,6 +680,7 @@ export default function TaskListView({
   const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set(stages.map(s => s.id)));
   const [filterStage, setFilterStage] = useState<string>('all');
   const [showHidden, setShowHidden] = useState(false);
+  const [taskFilters, setTaskFilters] = useState<TaskFiltersType>(defaultTaskFilters);
   
   // Submission dialog state
   const [submissionTask, setSubmissionTask] = useState<Task | null>(null);
@@ -886,13 +888,83 @@ export default function TaskListView({
     : visibleStages.filter(s => s.id === filterStage);
 
   // Filter tasks based on visibility (non-leaders don't see hidden tasks)
-  const visibleTasks = showHidden || isLeaderInGroup 
+  const baseVisibleTasks = showHidden || isLeaderInGroup 
     ? tasks 
     : tasks.filter(t => !t.is_hidden);
 
+  // Apply task filters
+  const visibleTasks = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+    const endOfWeek = new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    return baseVisibleTasks.filter(task => {
+      // Search text filter
+      if (taskFilters.searchText) {
+        const searchLower = taskFilters.searchText.toLowerCase();
+        const titleMatch = task.title.toLowerCase().includes(searchLower);
+        const descMatch = task.description?.toLowerCase().includes(searchLower);
+        const assigneeMatch = task.task_assignments?.some(a => 
+          a.profiles?.full_name?.toLowerCase().includes(searchLower)
+        );
+        if (!titleMatch && !descMatch && !assigneeMatch) return false;
+      }
+
+      // Status filter
+      if (taskFilters.status !== 'all') {
+        if (taskFilters.status === 'DONE_OR_VERIFIED') {
+          if (task.status !== 'DONE' && task.status !== 'VERIFIED') return false;
+        } else if (task.status !== taskFilters.status) {
+          return false;
+        }
+      }
+
+      // Assignee filter
+      if (taskFilters.assignee !== 'all') {
+        if (taskFilters.assignee === 'unassigned') {
+          if (task.task_assignments && task.task_assignments.length > 0) return false;
+        } else {
+          const hasAssignee = task.task_assignments?.some(a => a.user_id === taskFilters.assignee);
+          if (!hasAssignee) return false;
+        }
+      }
+
+      // Deadline filter
+      if (taskFilters.hasDeadline !== 'all') {
+        if (taskFilters.hasDeadline === 'yes' && !task.deadline) return false;
+        if (taskFilters.hasDeadline === 'no' && task.deadline) return false;
+        if (taskFilters.hasDeadline === 'today' && task.deadline) {
+          const deadline = new Date(task.deadline);
+          if (deadline < startOfToday || deadline >= endOfToday) return false;
+        }
+        if (taskFilters.hasDeadline === 'thisWeek' && task.deadline) {
+          const deadline = new Date(task.deadline);
+          if (deadline < startOfToday || deadline >= endOfWeek) return false;
+        }
+      }
+
+      // Overdue filter
+      if (taskFilters.isOverdue !== 'all') {
+        const isTaskOverdue = task.deadline && new Date(task.deadline) < now && 
+          task.status !== 'DONE' && task.status !== 'VERIFIED';
+        if (taskFilters.isOverdue === 'yes' && !isTaskOverdue) return false;
+        if (taskFilters.isOverdue === 'no' && isTaskOverdue) return false;
+      }
+
+      // Submission filter
+      if (taskFilters.hasSubmission !== 'all') {
+        if (taskFilters.hasSubmission === 'yes' && !task.submission_link) return false;
+        if (taskFilters.hasSubmission === 'no' && task.submission_link) return false;
+      }
+
+      return true;
+    });
+  }, [baseVisibleTasks, taskFilters]);
+
   const unstagedTasks = getTasksByStage(null).filter(t => 
     showHidden || isLeaderInGroup ? true : !t.is_hidden
-  );
+  ).filter(t => visibleTasks.some(vt => vt.id === t.id));
 
   // Count hidden items
   const hiddenTasksCount = tasks.filter(t => t.is_hidden).length;
@@ -904,10 +976,18 @@ export default function TaskListView({
   const overdueTasks = visibleTasks.filter(t => isOverdue(t.deadline) && t.status !== 'DONE' && t.status !== 'VERIFIED').length;
   const inProgressTasks = visibleTasks.filter(t => t.status === 'IN_PROGRESS').length;
 
+  // Check if any filters are active
+  const hasActiveFilters = taskFilters.searchText || 
+    taskFilters.status !== 'all' || 
+    taskFilters.assignee !== 'all' || 
+    taskFilters.hasDeadline !== 'all' || 
+    taskFilters.isOverdue !== 'all' || 
+    taskFilters.hasSubmission !== 'all';
+
   return (
     <>
       {/* Header with stats - Compact */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
             <Target className="w-5 h-5 text-primary" />
@@ -915,7 +995,7 @@ export default function TaskListView({
           <div>
             <h2 className="text-lg font-bold">Task & Giai đoạn</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-medium">{totalTasks} task</span>
+              <span className="font-medium">{totalTasks} task{hasActiveFilters ? ' (đã lọc)' : ''}</span>
               <span className="text-success">• {completedTasks} xong</span>
               {inProgressTasks > 0 && <span className="text-warning">• {inProgressTasks} đang làm</span>}
               {overdueTasks > 0 && <span className="text-destructive">• {overdueTasks} trễ</span>}
@@ -959,19 +1039,35 @@ export default function TaskListView({
         </div>
       </div>
 
+      {/* Task Filters */}
+      <div className="mb-4">
+        <TaskFilters
+          filters={taskFilters}
+          onFiltersChange={setTaskFilters}
+          members={members}
+          tasks={baseVisibleTasks}
+          onReset={() => setTaskFilters(defaultTaskFilters)}
+        />
+      </div>
+
       {/* Stage Sections with Drag & Drop */}
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="space-y-4">
           {filteredStages.map((stage, stageIndex) => {
-            const stageTasks = getTasksByStage(stage.id).filter(t => 
+            // Filter stage tasks to only include visible (filtered) tasks
+            const allStageTasks = getTasksByStage(stage.id).filter(t => 
               showHidden || isLeaderInGroup ? true : !t.is_hidden
             );
+            const stageTasks = allStageTasks.filter(t => visibleTasks.some(vt => vt.id === t.id));
             const completedCount = stageTasks.filter(t => t.status === 'DONE' || t.status === 'VERIFIED').length;
             const overdueCount = stageTasks.filter(t => isOverdue(t.deadline) && t.status !== 'DONE' && t.status !== 'VERIFIED').length;
             const isExpanded = expandedStages.has(stage.id);
             const stageColor = getStageColor(stageIndex);
             const progressPercent = stageTasks.length > 0 ? (completedCount / stageTasks.length) * 100 : 0;
             const hiddenTasksInStage = getTasksByStage(stage.id).filter(t => t.is_hidden).length;
+            
+            // Skip stages with no visible tasks when filters are active
+            if (hasActiveFilters && stageTasks.length === 0) return null;
 
             return (
               <Card 
