@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Users, Loader2, ArrowLeft, Layers, Trash2, FileText, Calendar } from 'lucide-react';
 import ProjectNavigation from '@/components/ProjectNavigation';
 import ProcessScores from '@/components/scores/ProcessScores';
+import ProjectResources from '@/components/ProjectResources';
 
 import type { Group, GroupMember, Task, Profile, Stage } from '@/types/database';
 import { DeadlineHourPicker } from '@/components/DeadlineHourPicker';
@@ -75,6 +76,7 @@ export default function GroupDetail() {
     'overview',
     'tasks',
     'members',
+    'resources',
     'scores',
     'logs',
     ...(isLeaderInGroup && group?.created_by === user?.id ? ['settings'] : [])
@@ -362,6 +364,7 @@ export default function GroupDetail() {
               <TabsTrigger value="overview">Tổng quan</TabsTrigger>
               <TabsTrigger value="tasks">Task</TabsTrigger>
               <TabsTrigger value="members">Thành viên</TabsTrigger>
+              <TabsTrigger value="resources">Tài nguyên</TabsTrigger>
               <TabsTrigger value="scores">Điểm quá trình</TabsTrigger>
               <TabsTrigger value="logs">Nhật ký</TabsTrigger>
               <TabsTrigger value="settings">Cài đặt</TabsTrigger>
@@ -604,6 +607,10 @@ export default function GroupDetail() {
 
             <TabsContent value="members" className="mt-6">
               <MemberManagementCard members={members} availableProfiles={availableProfiles} isLeaderInGroup={isLeaderInGroup} isGroupCreator={isGroupCreator} groupId={group.id} currentUserId={user?.id || ''} groupCreatorId={group.created_by} onRefresh={fetchGroupData} />
+            </TabsContent>
+
+            <TabsContent value="resources" className="mt-6">
+              <ProjectResources groupId={group.id} isLeader={isLeaderInGroup} />
             </TabsContent>
 
             <TabsContent value="scores" className="mt-6">
