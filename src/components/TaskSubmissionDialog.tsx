@@ -71,6 +71,7 @@ import TaskComments from './communication/TaskComments';
 import CompactTaskNotes from './CompactTaskNotes';
 import UserAvatar from './UserAvatar';
 import { CountdownTimer } from './CountdownTimer';
+import ResourceLinkRenderer from './ResourceLinkRenderer';
 
 interface TaskAssignee {
   user_id: string;
@@ -600,7 +601,10 @@ export default function TaskSubmissionDialog({
                           <h2 className="text-base font-bold text-foreground leading-tight">{task?.title}</h2>
                           {task?.description && (
                             <div className="pt-2 border-t border-border/30">
-                              <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{task.description}</p>
+                              <ResourceLinkRenderer 
+                                content={task.description} 
+                                className="text-sm text-foreground/90 leading-relaxed block"
+                              />
                             </div>
                           )}
                         </div>
