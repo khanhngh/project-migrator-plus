@@ -33,6 +33,7 @@ interface ResourceTagTextareaProps {
   className?: string;
   minHeight?: string;
   disabled?: boolean;
+  fillHeight?: boolean; // New prop to fill parent height
 }
 
 function getFileIcon(fileName: string) {
@@ -83,7 +84,8 @@ export default function ResourceTagTextarea({
   placeholder = 'Nhập mô tả... (gõ # để tham chiếu tài nguyên)',
   className,
   minHeight = '80px',
-  disabled = false
+  disabled = false,
+  fillHeight = false
 }: ResourceTagTextareaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -229,7 +231,7 @@ export default function ResourceTagTextarea({
   };
 
   return (
-    <div className="relative">
+    <div className={cn("relative", fillHeight && "flex-1 flex flex-col min-h-0")}>
       {/* Suggestions Popup - Compact */}
       {showSuggestions && (
         <Card 
@@ -287,8 +289,8 @@ export default function ResourceTagTextarea({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className={cn('resize-none text-sm', className)}
-        style={{ minHeight }}
+        className={cn('resize-none text-sm', fillHeight && 'flex-1', className)}
+        style={{ minHeight: fillHeight ? undefined : minHeight }}
         disabled={disabled}
       />
 

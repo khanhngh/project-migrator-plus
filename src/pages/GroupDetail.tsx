@@ -477,8 +477,8 @@ export default function GroupDetail() {
                                   onChange={setNewTaskDescription}
                                   groupId={group.id}
                                   placeholder="Mô tả chi tiết yêu cầu, tài liệu tham khảo... (gõ # để chèn tài nguyên)" 
-                                  className="flex-1 bg-background/80 border-border/50 focus:border-primary/30" 
-                                  minHeight="140px"
+                                  className="bg-background/80 border-border/50 focus:border-primary/30" 
+                                  fillHeight={true}
                                 />
                               </div>
                             </div>

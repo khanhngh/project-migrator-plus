@@ -11,6 +11,7 @@ import { isDeadlineOverdue, parseLocalDateTime } from '@/lib/datetime';
 import { getProjectUrl, getTaskUrl } from '@/lib/urlUtils';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import ResourceLinkRenderer from '@/components/ResourceLinkRenderer';
 
 interface TaskCardProps {
   task: Task & { task_assignments?: (TaskAssignment & { profiles?: Profile })[]; extended_deadline?: string };
@@ -87,9 +88,9 @@ export function TaskCard({ task, groupId, groupSlug, showLink = true }: TaskCard
                 )}
               </div>
               {task.description && (
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {task.description}
-                </p>
+                <div className="text-sm text-muted-foreground line-clamp-2">
+                  <ResourceLinkRenderer content={task.description} />
+                </div>
               )}
             </div>
             <Badge className={`${statusConfig.color} shrink-0 border gap-1`}>

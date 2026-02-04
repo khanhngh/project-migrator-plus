@@ -35,6 +35,7 @@ import { notifyTaskUpdated, notifyTaskAssigneesChanged } from '@/lib/notificatio
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import ResourceTagTextarea from './ResourceTagTextarea';
+import ResourceLinkRenderer from './ResourceLinkRenderer';
 
 interface TaskEditDialogProps {
   task: Task | null;
@@ -350,7 +351,7 @@ export default function TaskEditDialog({
                       <div className="p-2 rounded-md bg-muted/50 border text-sm font-medium">{task?.title}</div>
                     )}
                   </div>
-                  <div>
+                  <div className="flex-1 flex flex-col min-h-0">
                     <Label className="text-xs mb-1.5 block">Mô tả</Label>
                     {canEditDetails ? (
                       <ResourceTagTextarea 
@@ -358,11 +359,12 @@ export default function TaskEditDialog({
                         onChange={setDescription} 
                         groupId={task?.group_id || ''} 
                         placeholder="Mô tả công việc... (gõ # để chèn tài nguyên)" 
-                        minHeight="80px"
+                        minHeight="100px"
                       />
                     ) : (
                       <div className="p-2 rounded-md bg-muted/50 border text-sm min-h-[60px]">
-                        {task?.description || <span className="text-muted-foreground">Không có mô tả</span>}
+                        <ResourceLinkRenderer content={task?.description || ''} />
+                        {!task?.description && <span className="text-muted-foreground">Không có mô tả</span>}
                       </div>
                     )}
                   </div>
