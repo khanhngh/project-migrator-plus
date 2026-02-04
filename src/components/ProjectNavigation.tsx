@@ -19,8 +19,8 @@ interface NavTab {
 const tabs: NavTab[] = [
   { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard, showAlways: true },
   { id: 'tasks', label: 'Task & Giai đoạn', icon: Layers, showAlways: true },
-  { id: 'members', label: 'Thành viên', icon: Users, showAlways: true },
   { id: 'resources', label: 'Tài nguyên', icon: FolderOpen, showAlways: true },
+  { id: 'members', label: 'Thành viên', icon: Users, showAlways: true },
   { id: 'scores', label: 'Điểm quá trình', icon: Award, showAlways: true },
   { id: 'logs', label: 'Nhật ký', icon: Activity, showAlways: true },
   { id: 'settings', label: 'Cài đặt', icon: Settings, showAlways: false },
