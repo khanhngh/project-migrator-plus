@@ -625,6 +625,7 @@ export type Database = {
           file_path: string
           file_size: number
           file_type: string | null
+          folder_id: string | null
           group_id: string
           id: string
           name: string
@@ -639,6 +640,7 @@ export type Database = {
           file_path: string
           file_size?: number
           file_type?: string | null
+          folder_id?: string | null
           group_id: string
           id?: string
           name: string
@@ -653,6 +655,7 @@ export type Database = {
           file_path?: string
           file_size?: number
           file_type?: string | null
+          folder_id?: string | null
           group_id?: string
           id?: string
           name?: string
@@ -662,7 +665,49 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "project_resources_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "resource_folders"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "project_resources_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resource_folders: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          group_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          group_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          group_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_folders_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"

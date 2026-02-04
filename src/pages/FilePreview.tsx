@@ -125,10 +125,15 @@ export default function FilePreview() {
   const legacyFileSize = parseInt(searchParams.get('size') || '0');
   const legacyTaskId = searchParams.get('taskId') || searchParams.get('t');
   const legacyGroupId = searchParams.get('groupId') || searchParams.get('p');
+  
+  // Direct URL support (for project resources)
+  const directUrl = searchParams.get('url');
+  const sourceType = searchParams.get('source'); // 'resource' | 'submission'
 
   // Computed values
   const isSemanticRoute = !!(projectSlug && taskSlug);
   const isPublicRoute = !!shareToken;
+  const isDirectUrl = !!directUrl;
 
   const handleGoBack = () => {
     if (isSemanticRoute || resolvedProjectSlug) {
@@ -136,6 +141,9 @@ export default function FilePreview() {
       navigate(`/p/${slug}?tab=tasks${resolvedTaskId ? `&task=${resolvedTaskId}` : ''}`);
     } else if (isPublicRoute) {
       navigate(`/s/${shareToken}`);
+    } else if (isDirectUrl) {
+      // Go back to previous page for direct URL mode
+      navigate(-1);
     } else if (legacyGroupId) {
       const projectPath = isUUID(legacyGroupId) ? `/groups/${legacyGroupId}` : `/p/${legacyGroupId}`;
       navigate(`${projectPath}?tab=tasks${legacyTaskId ? `&task=${legacyTaskId}` : ''}`);
@@ -146,13 +154,17 @@ export default function FilePreview() {
 
   // Resolve task from semantic slug or legacy params
   useEffect(() => {
-    if (isSemanticRoute) {
+    if (isDirectUrl) {
+      // Direct URL mode - just set the URL directly
+      setFileUrl(directUrl);
+      setIsLoading(false);
+    } else if (isSemanticRoute) {
       resolveTaskFromSlugs();
     } else if (legacyTaskId) {
       setResolvedTaskId(legacyTaskId);
       fetchTaskData(legacyTaskId);
     }
-  }, [projectSlug, taskSlug, legacyTaskId]);
+  }, [projectSlug, taskSlug, legacyTaskId, isDirectUrl, directUrl]);
 
   const resolveTaskFromSlugs = async () => {
     if (!projectSlug || !taskSlug) return;
@@ -259,12 +271,13 @@ export default function FilePreview() {
 
   // Computed current file info
   const currentFileIndex = useMemo(() => {
+    if (isDirectUrl) return -1; // Direct URL mode has no file list
     if (isSemanticRoute) {
       return fileIndex ?? 0;
     }
     if (!legacyFilePath || taskFiles.length === 0) return -1;
     return taskFiles.findIndex(f => f.file_path === legacyFilePath);
-  }, [legacyFilePath, taskFiles, isSemanticRoute, fileIndex]);
+  }, [legacyFilePath, taskFiles, isSemanticRoute, fileIndex, isDirectUrl]);
 
   const currentFile = taskFiles[currentFileIndex] || null;
   const filePath = currentFile?.file_path || legacyFilePath;
