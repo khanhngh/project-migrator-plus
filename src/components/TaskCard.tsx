@@ -4,21 +4,45 @@ import { Badge } from '@/components/ui/badge';
 import UserAvatar from '@/components/UserAvatar';
 import { Progress } from '@/components/ui/progress';
 import { CountdownTimer } from '@/components/CountdownTimer';
-import { FileText, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { FileText, CheckCircle2, AlertTriangle, Clock, CalendarPlus } from 'lucide-react';
 import type { Task, TaskAssignment, Profile } from '@/types/database';
-import { isDeadlineOverdue } from '@/lib/datetime';
+import { isDeadlineOverdue, parseLocalDateTime } from '@/lib/datetime';
 import { getProjectUrl, getTaskUrl } from '@/lib/urlUtils';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 interface TaskCardProps {
-  task: Task & { task_assignments?: (TaskAssignment & { profiles?: Profile })[] };
+  task: Task & { task_assignments?: (TaskAssignment & { profiles?: Profile })[]; extended_deadline?: string };
   groupId: string;
   groupSlug?: string;
   showLink?: boolean;
 }
 
 export function TaskCard({ task, groupId, groupSlug, showLink = true }: TaskCardProps) {
-  const isOverdue = isDeadlineOverdue(task.deadline);
+  // Handle extended deadline
+  const hasExtension = !!(task as any).extended_deadline;
+  const effectiveDeadline = hasExtension ? (task as any).extended_deadline : task.deadline;
+  const isOverdue = isDeadlineOverdue(effectiveDeadline);
   const taskIsOverdue = isOverdue && task.status !== 'DONE' && task.status !== 'VERIFIED';
+
+  // Calculate extension hours for display
+  const getExtensionText = () => {
+    if (!task.deadline || !hasExtension) return '';
+    const original = parseLocalDateTime(task.deadline);
+    const extended = parseLocalDateTime((task as any).extended_deadline);
+    if (!original || !extended) return '';
+    const diffMs = extended.getTime() - original.getTime();
+    const hours = Math.round(diffMs / (1000 * 60 * 60));
+    if (hours <= 0) return '';
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+    let text = '+';
+    if (days > 0) text += `${days}d`;
+    if (days > 0 && remainingHours > 0) text += ' ';
+    if (remainingHours > 0) text += `${remainingHours}h`;
+    return text;
+  };
 
   const getStatusConfig = (status: string) => {
     if (taskIsOverdue) {
@@ -81,10 +105,30 @@ export function TaskCard({ task, groupId, groupSlug, showLink = true }: TaskCard
 
           {/* Footer */}
           <div className="flex items-center justify-between gap-2 pt-1">
-            <div className="flex items-center gap-3">
-              {/* Deadline */}
-              {task.deadline && (
-                <CountdownTimer deadline={task.deadline} className="text-xs" />
+            <div className="flex items-center gap-2">
+              {/* Extension Badge - Prominent display */}
+              {hasExtension && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge className="gap-0.5 px-1.5 py-0 text-[10px] bg-blue-500/15 text-blue-600 border-blue-500/30 cursor-default">
+                        <CalendarPlus className="w-3 h-3" />
+                        {getExtensionText()}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      <div className="space-y-0.5">
+                        <p className="text-muted-foreground">Deadline gốc: {task.deadline ? format(parseLocalDateTime(task.deadline)!, "dd/MM - HH:mm", { locale: vi }) : '-'}</p>
+                        <p className="font-medium text-blue-600">Gia hạn đến: {effectiveDeadline ? format(parseLocalDateTime(effectiveDeadline)!, "dd/MM - HH:mm", { locale: vi }) : '-'}</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              
+              {/* Deadline Countdown - Use effective deadline */}
+              {effectiveDeadline && (
+                <CountdownTimer deadline={effectiveDeadline} className="text-xs" />
               )}
               
               {/* Submission indicator */}

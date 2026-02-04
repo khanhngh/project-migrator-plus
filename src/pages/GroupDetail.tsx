@@ -414,8 +414,8 @@ export default function GroupDetail() {
                         {/* Content - Single scrollable area */}
                         <div className="flex-1 overflow-hidden">
                           <div className="grid grid-cols-12 h-full">
-                            {/* Left Column (8 cols) */}
-                            <div className="col-span-8 p-4 overflow-y-auto border-r space-y-3">
+                            {/* Left Column (8 cols) - Flex column for better space usage */}
+                            <div className="col-span-8 p-4 overflow-y-auto border-r flex flex-col gap-3">
                               {/* Basic Info - Task Title */}
                               <div>
                                 <div className="flex items-center gap-2 text-primary mb-2">
@@ -428,24 +428,13 @@ export default function GroupDetail() {
                                 </div>
                               </div>
 
-                              {/* Description - Expanded to use available space */}
-                              <div className="pl-6">
-                                <Label className="text-xs mb-1 block">Mô tả công việc</Label>
-                                <Textarea 
-                                  value={newTaskDescription} 
-                                  onChange={e => setNewTaskDescription(e.target.value)} 
-                                  placeholder="Mô tả chi tiết yêu cầu, tài liệu tham khảo, hướng dẫn thực hiện..." 
-                                  className="min-h-[140px] resize-none text-sm" 
-                                />
-                              </div>
-
-                              {/* Stage & Config - Compact row */}
+                              {/* Stage & Config + Deadline - Compact row */}
                               <div>
                                 <div className="flex items-center gap-2 text-warning mb-2">
                                   <Layers className="w-4 h-4" />
                                   <span className="text-xs font-semibold uppercase">Giai đoạn & Cấu hình</span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3 pl-6">
+                                <div className="grid grid-cols-3 gap-3 pl-6">
                                   {stages.length > 0 && (
                                     <div>
                                       <Label className="text-xs mb-1 block">Giai đoạn <span className="text-destructive">*</span></Label>
@@ -458,20 +447,28 @@ export default function GroupDetail() {
                                     </div>
                                   )}
                                   <div>
+                                    <Label className="text-xs mb-1 block flex items-center gap-1">
+                                      <Calendar className="w-3 h-3 text-blue-600" /> Deadline
+                                    </Label>
+                                    <DeadlineHourPicker value={newTaskDeadline} onChange={setNewTaskDeadline} placeholder="Chọn deadline..." />
+                                  </div>
+                                  <div>
                                     <Label className="text-xs mb-1 block">Giới hạn upload</Label>
                                     <FileSizeLimitSelector value={newTaskMaxFileSize} onChange={setNewTaskMaxFileSize} />
                                   </div>
                                 </div>
                               </div>
 
-                              {/* Deadline - Compact single row, NO extension section */}
-                              <div>
-                                <div className="flex items-center gap-2 text-blue-600 mb-2">
-                                  <Calendar className="w-4 h-4" />
-                                  <span className="text-xs font-semibold uppercase">Thời hạn</span>
-                                </div>
-                                <div className="pl-6">
-                                  <DeadlineHourPicker value={newTaskDeadline} onChange={setNewTaskDeadline} placeholder="Chọn deadline..." />
+                              {/* Description - Expanded to fill remaining space */}
+                              <div className="flex-1 flex flex-col min-h-0">
+                                <Label className="text-xs mb-1 block pl-6">Mô tả công việc</Label>
+                                <div className="flex-1 pl-6">
+                                  <Textarea 
+                                    value={newTaskDescription} 
+                                    onChange={e => setNewTaskDescription(e.target.value)} 
+                                    placeholder="Mô tả chi tiết yêu cầu, tài liệu tham khảo, hướng dẫn thực hiện..." 
+                                    className="h-full min-h-[180px] resize-none text-sm" 
+                                  />
                                 </div>
                               </div>
                             </div>
