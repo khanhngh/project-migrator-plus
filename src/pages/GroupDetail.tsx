@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ResourceTagTextarea from '@/components/ResourceTagTextarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -471,11 +472,13 @@ export default function GroupDetail() {
                                   <FileText className="w-4 h-4 text-muted-foreground" />
                                   Mô tả công việc
                                 </Label>
-                                <Textarea 
+                                <ResourceTagTextarea 
                                   value={newTaskDescription} 
-                                  onChange={e => setNewTaskDescription(e.target.value)} 
-                                  placeholder="Mô tả chi tiết yêu cầu, tài liệu tham khảo, hướng dẫn thực hiện..." 
-                                  className="flex-1 min-h-[140px] resize-none text-sm bg-background/80 border-border/50 focus:border-primary/30" 
+                                  onChange={setNewTaskDescription}
+                                  groupId={group.id}
+                                  placeholder="Mô tả chi tiết yêu cầu, tài liệu tham khảo... (gõ # để chèn tài nguyên)" 
+                                  className="flex-1 bg-background/80 border-border/50 focus:border-primary/30" 
+                                  minHeight="140px"
                                 />
                               </div>
                             </div>
