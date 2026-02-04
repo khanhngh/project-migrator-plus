@@ -107,7 +107,7 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
           <div className="w-[140px] shrink-0">
             <Link to="/dashboard" className="flex items-center gap-2 group">
               <img src={uehLogo} alt="UEH Logo" className="h-8 w-auto drop-shadow-md group-hover:scale-105 transition-transform" />
-              <span className="font-bold text-sm text-primary-foreground hidden sm:block">TaskFlow</span>
+              <span className="font-bold text-sm text-primary-foreground hidden sm:block">Teamworks</span>
             </Link>
           </div>
 

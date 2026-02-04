@@ -16,7 +16,7 @@ export default function Auth() {
             </Button>
           </Link>
           <span className="hidden sm:inline font-heading text-sm text-muted-foreground">
-            TaskFlow UEH
+            Teamworks UEH
           </span>
         </div>
       </header>
@@ -28,7 +28,7 @@ export default function Auth() {
 
       {/* Footer */}
       <footer className="border-t py-4 text-center text-sm text-muted-foreground bg-card">
-        © 2025 TaskFlow UEH - Đại học Kinh tế TP. Hồ Chí Minh
+        © 2025 Teamworks UEH - Đại học Kinh tế TP. Hồ Chí Minh
       </footer>
     </div>
   );
