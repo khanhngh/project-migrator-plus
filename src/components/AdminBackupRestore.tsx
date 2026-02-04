@@ -26,6 +26,7 @@ import {
   Settings
 } from 'lucide-react';
 import JSZip from 'jszip';
+import { generateProjectEvidencePdfBlob, ExportData as EvidenceExportData, ExportOptions as EvidenceExportOptions } from '@/lib/projectEvidencePdf';
 
 interface Group {
   id: string;
@@ -769,6 +770,62 @@ export default function AdminBackupRestore() {
 
       zip.file('backup.json', JSON.stringify(backupData, null, 2));
 
+      setExportProgress(92);
+
+      // Generate evidence PDF and add to ZIP
+      try {
+        // Prepare data for evidence PDF (use 'any' to avoid type conflicts with partial profile data)
+        const membersFull = membersRes.data?.map(m => {
+          const profile = profilesData?.find(p => p.id === m.user_id);
+          return {
+            ...m,
+            profiles: profile
+          };
+        }) || [];
+
+        const tasksFull = tasksRes.data?.map(task => {
+          const taskAssignments = assignmentsRes.data?.filter(a => a.task_id === task.id) || [];
+          const assigneeProfilesLocal = taskAssignments.map(a => {
+            const prof = profilesData?.find(p => p.id === a.user_id);
+            return { ...a, profiles: prof };
+          });
+          return {
+            ...task,
+            task_assignments: assigneeProfilesLocal
+          };
+        }) || [];
+
+        const evidenceOptions: EvidenceExportOptions = {
+          includeMembers: true,
+          includeTasks: true,
+          includeScores: exportOptions.includeScores,
+          includeResources: exportOptions.includeResources,
+          includeLogs: exportOptions.includeActivityLogs,
+        };
+
+        const evidenceData: EvidenceExportData = {
+          project: group as any,
+          members: membersFull as any,
+          stages: (stagesRes.data || []) as any,
+          tasks: tasksFull as any,
+          taskScores: scoresRes.data || [],
+          stageScores: memberStageScoresRes.data || [],
+          finalScores: memberFinalScoresRes.data || [],
+          scoreAppeals: scoreAppealsRes.data || [],
+          resources: resourcesRes.data || [],
+          activityLogs: activityLogsRes.data || [],
+          options: evidenceOptions,
+        };
+
+        const { blob: pdfBlob, fileName: pdfFileName } = await generateProjectEvidencePdfBlob(evidenceData);
+        zip.file(pdfFileName, pdfBlob);
+        
+        console.log('Evidence PDF added to backup:', pdfFileName);
+      } catch (pdfError) {
+        console.warn('Could not generate evidence PDF:', pdfError);
+        // Continue without PDF - not critical
+      }
+
       setExportProgress(95);
 
       const blob = await zip.generateAsync({ type: 'blob' });
@@ -791,6 +848,7 @@ export default function AdminBackupRestore() {
         exportOptions.includeTaskNotes ? `${taskNotesForBackup.length} ghi chú` : null,
         exportOptions.includeTaskComments ? `${taskCommentsForBackup.length} bình luận` : null,
         exportOptions.includeResources ? `${resourcesForBackup.length} tài nguyên` : null,
+        '+ PDF minh chứng',
       ].filter(Boolean).join(', ');
 
       toast({ 
