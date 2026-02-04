@@ -160,7 +160,7 @@ export default function Dashboard() {
                 <p className="text-sm">Liên hệ Leader để được thêm vào project</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {groups.map((group) => (
                   <DashboardProjectCard
                     key={group.id}
