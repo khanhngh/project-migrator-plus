@@ -3,11 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Search,
   Filter,
-  ChevronDown,
   RotateCcw,
   Clock,
   AlertTriangle,
@@ -16,7 +15,7 @@ import {
   ListTodo,
   CalendarClock,
   User,
-  Zap,
+  ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Task, Stage, GroupMember } from '@/types/database';
@@ -42,9 +41,11 @@ interface TaskFiltersProps {
 interface QuickFilter {
   id: string;
   label: string;
+  shortLabel: string;
   icon: React.ReactNode;
   filter: Partial<TaskFilters>;
   color: string;
+  activeColor: string;
   count?: number;
 }
 
@@ -64,8 +65,6 @@ export default function TaskFilters({
   tasks,
   onReset,
 }: TaskFiltersProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
   // Calculate counts for quick filters
   const counts = useMemo(() => {
     const now = new Date();
@@ -86,54 +85,66 @@ export default function TaskFilters({
     };
   }, [tasks]);
 
-  // Quick filters
+  // Quick filters - compact
   const quickFilters: QuickFilter[] = [
     {
       id: 'overdue',
       label: 'Trễ hạn',
-      icon: <AlertTriangle className="w-3.5 h-3.5" />,
+      shortLabel: 'Trễ',
+      icon: <AlertTriangle className="w-3 h-3" />,
       filter: { isOverdue: 'yes', status: 'all' },
-      color: 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20',
+      color: 'text-destructive hover:bg-destructive/10',
+      activeColor: 'bg-destructive/15 text-destructive border-destructive/40',
       count: counts.overdue,
     },
     {
       id: 'inProgress',
       label: 'Đang làm',
-      icon: <Loader2 className="w-3.5 h-3.5" />,
+      shortLabel: 'Làm',
+      icon: <Loader2 className="w-3 h-3" />,
       filter: { status: 'IN_PROGRESS' },
-      color: 'bg-warning/10 text-warning border-warning/30 hover:bg-warning/20',
+      color: 'text-warning hover:bg-warning/10',
+      activeColor: 'bg-warning/15 text-warning border-warning/40',
       count: counts.inProgress,
     },
     {
       id: 'todo',
       label: 'Chờ xử lý',
-      icon: <ListTodo className="w-3.5 h-3.5" />,
+      shortLabel: 'Chờ',
+      icon: <ListTodo className="w-3 h-3" />,
       filter: { status: 'TODO' },
-      color: 'bg-muted text-muted-foreground border-border hover:bg-muted/80',
+      color: 'text-muted-foreground hover:bg-muted',
+      activeColor: 'bg-muted text-foreground border-border',
       count: counts.todo,
     },
     {
       id: 'noSubmission',
       label: 'Chưa nộp',
-      icon: <Clock className="w-3.5 h-3.5" />,
+      shortLabel: 'C.nộp',
+      icon: <Clock className="w-3 h-3" />,
       filter: { hasSubmission: 'no' },
-      color: 'bg-orange-500/10 text-orange-600 border-orange-500/30 hover:bg-orange-500/20',
+      color: 'text-orange-600 hover:bg-orange-500/10',
+      activeColor: 'bg-orange-500/15 text-orange-600 border-orange-500/40',
       count: counts.noSubmission,
     },
     {
       id: 'deadlineToday',
       label: 'Hôm nay',
-      icon: <CalendarClock className="w-3.5 h-3.5" />,
+      shortLabel: 'Nay',
+      icon: <CalendarClock className="w-3 h-3" />,
       filter: { hasDeadline: 'today' },
-      color: 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20',
+      color: 'text-blue-600 hover:bg-blue-500/10',
+      activeColor: 'bg-blue-500/15 text-blue-600 border-blue-500/40',
       count: counts.deadlineToday,
     },
     {
       id: 'done',
       label: 'Hoàn thành',
-      icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+      shortLabel: 'Xong',
+      icon: <CheckCircle2 className="w-3 h-3" />,
       filter: { status: 'DONE_OR_VERIFIED' },
-      color: 'bg-success/10 text-success border-success/30 hover:bg-success/20',
+      color: 'text-success hover:bg-success/10',
+      activeColor: 'bg-success/15 text-success border-success/40',
       count: counts.done,
     },
   ];
@@ -148,17 +159,14 @@ export default function TaskFilters({
   // Apply quick filter
   const applyQuickFilter = (qf: QuickFilter) => {
     if (isQuickFilterActive(qf)) {
-      // Deactivate - reset to defaults
       onFiltersChange({ ...defaultTaskFilters, searchText: filters.searchText });
     } else {
-      // Activate
       onFiltersChange({ ...defaultTaskFilters, searchText: filters.searchText, ...qf.filter });
     }
   };
 
-  // Count active filters
-  const activeFiltersCount = [
-    filters.searchText,
+  // Count active filters (excluding search)
+  const activeAdvancedFilters = [
     filters.status !== 'all' ? filters.status : '',
     filters.assignee !== 'all' ? filters.assignee : '',
     filters.hasDeadline !== 'all' ? filters.hasDeadline : '',
@@ -166,167 +174,200 @@ export default function TaskFilters({
     filters.hasSubmission !== 'all' ? filters.hasSubmission : '',
   ].filter(Boolean).length;
 
+  const hasAnyFilter = filters.searchText || activeAdvancedFilters > 0;
+
   return (
-    <div className="space-y-3">
-      {/* Row 1: Search + Filter toggle + Reset */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Tìm task..."
-            value={filters.searchText}
-            onChange={(e) => onFiltersChange({ ...filters, searchText: e.target.value })}
-            className="pl-9 h-9"
-          />
-        </div>
-
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1.5 h-9">
-              <Filter className="w-4 h-4" />
-              <span className="hidden sm:inline">Lọc nâng cao</span>
-              {activeFiltersCount > 0 && (
-                <Badge variant="secondary" className="h-5 px-1.5 text-xs">
-                  {activeFiltersCount}
-                </Badge>
-              )}
-              <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", isOpen && "rotate-180")} />
-            </Button>
-          </CollapsibleTrigger>
-        </Collapsible>
-
-        {activeFiltersCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={onReset} className="h-9 px-2 gap-1">
-            <RotateCcw className="w-4 h-4" />
-          </Button>
-        )}
+    <div className="flex flex-wrap items-center gap-1.5">
+      {/* Search - compact */}
+      <div className="relative w-40 sm:w-48">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <Input
+          placeholder="Tìm task..."
+          value={filters.searchText}
+          onChange={(e) => onFiltersChange({ ...filters, searchText: e.target.value })}
+          className="h-8 pl-8 pr-2 text-sm"
+        />
       </div>
 
-      {/* Row 2: Quick filters */}
-      <div className="flex flex-wrap gap-1.5">
-        <span className="text-xs text-muted-foreground flex items-center gap-1 mr-1">
-          <Zap className="w-3 h-3" />
-          Nhanh:
-        </span>
-        {quickFilters.map((qf) => (
+      {/* Divider */}
+      <div className="w-px h-6 bg-border mx-0.5 hidden sm:block" />
+
+      {/* Quick filters - inline chips */}
+      {quickFilters.map((qf) => {
+        const isActive = isQuickFilterActive(qf);
+        const hasItems = qf.count !== undefined && qf.count > 0;
+        
+        return (
           <Button
             key={qf.id}
-            variant="outline"
+            variant="ghost"
             size="sm"
             className={cn(
-              "h-7 text-xs px-2 gap-1 border transition-all",
-              isQuickFilterActive(qf) ? qf.color : "hover:bg-accent"
+              "h-7 px-2 gap-1 text-xs font-medium border border-transparent transition-all",
+              isActive ? qf.activeColor : qf.color,
+              !hasItems && !isActive && "opacity-50"
             )}
             onClick={() => applyQuickFilter(qf)}
+            disabled={!hasItems && !isActive}
           >
             {qf.icon}
-            {qf.label}
-            {qf.count !== undefined && qf.count > 0 && (
-              <Badge 
-                variant="secondary" 
-                className={cn(
-                  "h-4 px-1 text-[10px] ml-0.5",
-                  isQuickFilterActive(qf) && "bg-background/50"
-                )}
-              >
+            <span className="hidden sm:inline">{qf.label}</span>
+            <span className="sm:hidden">{qf.shortLabel}</span>
+            {hasItems && (
+              <span className={cn(
+                "text-[10px] font-bold min-w-[16px] h-4 flex items-center justify-center rounded-full",
+                isActive ? "bg-background/60" : "bg-current/10"
+              )}>
                 {qf.count}
-              </Badge>
+              </span>
             )}
           </Button>
-        ))}
-      </div>
+        );
+      })}
 
-      {/* Collapsible advanced filters */}
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleContent>
-          <div className="flex flex-wrap gap-2 pt-2 pb-1 border-t">
+      {/* Divider */}
+      <div className="w-px h-6 bg-border mx-0.5 hidden sm:block" />
+
+      {/* Advanced filters popover */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className={cn(
+              "h-7 px-2 gap-1 text-xs",
+              activeAdvancedFilters > 0 && "border-primary/50 bg-primary/5"
+            )}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Nâng cao</span>
+            {activeAdvancedFilters > 0 && (
+              <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                {activeAdvancedFilters}
+              </Badge>
+            )}
+            <ChevronDown className="w-3 h-3" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-72 p-3 bg-popover">
+          <div className="space-y-3">
+            <div className="text-xs font-medium text-muted-foreground">Lọc nâng cao</div>
+            
             {/* Status */}
-            <Select
-              value={filters.status}
-              onValueChange={(value) => onFiltersChange({ ...filters, status: value })}
-            >
-              <SelectTrigger className="w-[130px] h-8 text-sm">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover">
-                <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="TODO">Chờ xử lý</SelectItem>
-                <SelectItem value="IN_PROGRESS">Đang làm</SelectItem>
-                <SelectItem value="DONE">Hoàn thành</SelectItem>
-                <SelectItem value="VERIFIED">Đã duyệt</SelectItem>
-                <SelectItem value="DONE_OR_VERIFIED">Xong / Duyệt</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Trạng thái</label>
+              <Select
+                value={filters.status}
+                onValueChange={(value) => onFiltersChange({ ...filters, status: value })}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="TODO">Chờ xử lý</SelectItem>
+                  <SelectItem value="IN_PROGRESS">Đang làm</SelectItem>
+                  <SelectItem value="DONE">Hoàn thành</SelectItem>
+                  <SelectItem value="VERIFIED">Đã duyệt</SelectItem>
+                  <SelectItem value="DONE_OR_VERIFIED">Xong / Duyệt</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Assignee */}
-            <Select
-              value={filters.assignee}
-              onValueChange={(value) => onFiltersChange({ ...filters, assignee: value })}
-            >
-              <SelectTrigger className="w-[150px] h-8 text-sm">
-                <User className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-                <SelectValue placeholder="Người phụ trách" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover">
-                <SelectItem value="all">Tất cả thành viên</SelectItem>
-                <SelectItem value="unassigned">Chưa phân công</SelectItem>
-                {members.map((member) => (
-                  <SelectItem key={member.user_id} value={member.user_id}>
-                    {member.profiles?.full_name || 'Unknown'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Người phụ trách</label>
+              <Select
+                value={filters.assignee}
+                onValueChange={(value) => onFiltersChange({ ...filters, assignee: value })}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <User className="w-3 h-3 mr-1.5 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="unassigned">Chưa phân công</SelectItem>
+                  {members.map((member) => (
+                    <SelectItem key={member.user_id} value={member.user_id}>
+                      {member.profiles?.full_name || 'Unknown'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            {/* Deadline */}
-            <Select
-              value={filters.hasDeadline}
-              onValueChange={(value) => onFiltersChange({ ...filters, hasDeadline: value })}
-            >
-              <SelectTrigger className="w-[130px] h-8 text-sm">
-                <SelectValue placeholder="Deadline" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover">
-                <SelectItem value="all">Tất cả deadline</SelectItem>
-                <SelectItem value="today">Hôm nay</SelectItem>
-                <SelectItem value="thisWeek">Tuần này</SelectItem>
-                <SelectItem value="yes">Có deadline</SelectItem>
-                <SelectItem value="no">Không có deadline</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Deadline + Overdue row */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Deadline</label>
+                <Select
+                  value={filters.hasDeadline}
+                  onValueChange={(value) => onFiltersChange({ ...filters, hasDeadline: value })}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="today">Hôm nay</SelectItem>
+                    <SelectItem value="thisWeek">Tuần này</SelectItem>
+                    <SelectItem value="yes">Có deadline</SelectItem>
+                    <SelectItem value="no">Không có</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Overdue */}
-            <Select
-              value={filters.isOverdue}
-              onValueChange={(value) => onFiltersChange({ ...filters, isOverdue: value })}
-            >
-              <SelectTrigger className="w-[120px] h-8 text-sm">
-                <SelectValue placeholder="Trễ hạn" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover">
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="yes">Đang trễ</SelectItem>
-                <SelectItem value="no">Không trễ</SelectItem>
-              </SelectContent>
-            </Select>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Trạng thái trễ</label>
+                <Select
+                  value={filters.isOverdue}
+                  onValueChange={(value) => onFiltersChange({ ...filters, isOverdue: value })}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="yes">Đang trễ</SelectItem>
+                    <SelectItem value="no">Không trễ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
             {/* Submission */}
-            <Select
-              value={filters.hasSubmission}
-              onValueChange={(value) => onFiltersChange({ ...filters, hasSubmission: value })}
-            >
-              <SelectTrigger className="w-[120px] h-8 text-sm">
-                <SelectValue placeholder="Nộp bài" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover">
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="yes">Đã nộp</SelectItem>
-                <SelectItem value="no">Chưa nộp</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Nộp bài</label>
+              <Select
+                value={filters.hasSubmission}
+                onValueChange={(value) => onFiltersChange({ ...filters, hasSubmission: value })}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="yes">Đã nộp</SelectItem>
+                  <SelectItem value="no">Chưa nộp</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        </PopoverContent>
+      </Popover>
+
+      {/* Reset button */}
+      {hasAnyFilter && (
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={onReset} 
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+        </Button>
+      )}
     </div>
   );
 }
