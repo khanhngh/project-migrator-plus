@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import UserAvatar from '@/components/UserAvatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -34,6 +33,9 @@ import {
   UsersRound,
   Award,
   Percent,
+  Zap,
+  X,
+  Sparkles,
 } from 'lucide-react';
 import type { Task, GroupMember } from '@/types/database';
 import type { TaskScore } from '@/types/processScores';
@@ -53,9 +55,19 @@ interface MemberScoreEdit {
   adjustment: number;
   reason: string;
   currentScore: number;
-  isScored: boolean; // Whether this member has been explicitly scored
+  isScored: boolean;
   isEditing: boolean;
 }
+
+// Quick score presets for fast scoring
+const QUICK_SCORES = [
+  { value: 0, label: '100', description: 'Hoàn thành tốt', color: 'bg-green-500 hover:bg-green-600' },
+  { value: -5, label: '95', description: 'Tốt, thiếu sót nhỏ', color: 'bg-emerald-500 hover:bg-emerald-600' },
+  { value: -10, label: '90', description: 'Khá tốt', color: 'bg-blue-500 hover:bg-blue-600' },
+  { value: -20, label: '80', description: 'Đạt yêu cầu', color: 'bg-yellow-500 hover:bg-yellow-600' },
+  { value: -30, label: '70', description: 'Cần cải thiện', color: 'bg-orange-500 hover:bg-orange-600' },
+  { value: -50, label: '50', description: 'Yếu', color: 'bg-red-500 hover:bg-red-600' },
+];
 
 export default function TaskScoringDialog({
   isOpen,
@@ -69,27 +81,32 @@ export default function TaskScoringDialog({
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [memberEdits, setMemberEdits] = useState<MemberScoreEdit[]>([]);
-  const [scoringMode, setScoringMode] = useState<'group' | 'individual'>('group');
+  const [scoringMode, setScoringMode] = useState<'quick' | 'group' | 'individual'>('quick');
   
   // Group scoring state
   const [groupAdjustment, setGroupAdjustment] = useState(0);
   const [groupReason, setGroupReason] = useState('');
 
   // Get task assignees
-  const taskAssigneeIds = task?.task_assignments?.map((a: any) => a.user_id) || [];
-  const assignedMembers = members.filter(m => taskAssigneeIds.includes(m.user_id));
+  const taskAssigneeIds = useMemo(() => 
+    task?.task_assignments?.map((a: any) => a.user_id) || [], 
+    [task]
+  );
+  
+  const assignedMembers = useMemo(() => 
+    members.filter(m => taskAssigneeIds.includes(m.user_id)),
+    [members, taskAssigneeIds]
+  );
 
   useEffect(() => {
     if (isOpen && task) {
-      // Initialize member edit states
       const edits: MemberScoreEdit[] = assignedMembers.map(member => {
         const existingScore = taskScores.find(
           ts => ts.task_id === task.id && ts.user_id === member.user_id
         );
         
-        // Check if this score was explicitly set (has adjusted_by or adjustment is not 0)
         const isExplicitlyScored = existingScore ? 
-          (existingScore.adjusted_by !== null || existingScore.adjustment !== 0 || existingScore.adjustment !== null) : 
+          (existingScore.adjusted_by !== null || (existingScore.adjustment ?? 0) !== 0) : 
           false;
         
         return {
@@ -98,18 +115,15 @@ export default function TaskScoringDialog({
           adjustment: existingScore?.adjustment || 0,
           reason: existingScore?.adjustment_reason || '',
           currentScore: existingScore?.final_score || 100,
-          isScored: isExplicitlyScored && existingScore?.adjusted_by !== null,
+          isScored: isExplicitlyScored,
           isEditing: false,
         };
       });
       setMemberEdits(edits);
-      
-      // Reset group scoring
       setGroupAdjustment(0);
       setGroupReason('');
     }
-  }, [isOpen, task, taskScores, assignedMembers.length]);
-
+  }, [isOpen, task, taskScores, assignedMembers]);
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return 'text-green-600';
@@ -147,6 +161,101 @@ export default function TaskScoringDialog({
     );
   };
 
+  // Batch save for quick scoring
+  const handleQuickScoreAll = async (adjustment: number, reason: string) => {
+    if (!task || !user || assignedMembers.length === 0) return;
+
+    setIsLoading(true);
+    try {
+      const newScore = 100 + adjustment;
+      const updates: Promise<any>[] = [];
+      const historyInserts: any[] = [];
+
+      for (const member of assignedMembers) {
+        const existingScore = taskScores.find(
+          ts => ts.task_id === task.id && ts.user_id === member.user_id
+        );
+
+        if (existingScore) {
+          updates.push(
+            (async () => {
+              await supabase
+                .from('task_scores')
+                .update({
+                  adjustment,
+                  adjustment_reason: reason,
+                  adjusted_by: user.id,
+                  adjusted_at: new Date().toISOString(),
+                  final_score: newScore,
+                })
+                .eq('id', existingScore.id);
+              
+              historyInserts.push({
+                adjustment_type: 'task',
+                target_id: existingScore.id,
+                user_id: member.user_id,
+                previous_score: existingScore.final_score || 100,
+                new_score: newScore,
+                adjustment_value: adjustment,
+                reason: reason || 'Chấm điểm nhanh',
+                adjusted_by: user.id,
+              });
+            })()
+          );
+        } else {
+          updates.push(
+            (async () => {
+              const { data } = await supabase
+                .from('task_scores')
+                .insert({
+                  task_id: task.id,
+                  user_id: member.user_id,
+                  base_score: 100,
+                  adjustment,
+                  adjustment_reason: reason,
+                  adjusted_by: user.id,
+                  adjusted_at: new Date().toISOString(),
+                  final_score: newScore,
+                })
+                .select()
+                .single();
+
+              if (data) {
+                historyInserts.push({
+                  adjustment_type: 'task',
+                  target_id: data.id,
+                  user_id: member.user_id,
+                  previous_score: 100,
+                  new_score: newScore,
+                  adjustment_value: adjustment,
+                  reason: reason || 'Chấm điểm nhanh',
+                  adjusted_by: user.id,
+                });
+              }
+            })()
+          );
+        }
+      }
+
+      await Promise.all(updates);
+      
+      if (historyInserts.length > 0) {
+        await supabase.from('score_adjustment_history').insert(historyInserts);
+      }
+
+      toast({ 
+        title: 'Đã chấm điểm nhanh!',
+        description: `${assignedMembers.length} thành viên được chấm ${newScore} điểm`
+      });
+      onScoreUpdated();
+      onClose();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Save individual member score
   const handleSaveScore = async (edit: MemberScoreEdit) => {
     if (!task || !user) return;
@@ -156,7 +265,6 @@ export default function TaskScoringDialog({
       const newScore = 100 + edit.adjustment;
 
       if (edit.scoreId) {
-        // Update existing score
         const existingScore = taskScores.find(ts => ts.id === edit.scoreId);
         const previousScore = existingScore?.final_score || 100;
 
@@ -171,7 +279,6 @@ export default function TaskScoringDialog({
           })
           .eq('id', edit.scoreId);
 
-        // Log history
         await supabase.from('score_adjustment_history').insert([{
           adjustment_type: 'task',
           target_id: edit.scoreId,
@@ -183,7 +290,6 @@ export default function TaskScoringDialog({
           adjusted_by: user.id,
         }]);
       } else {
-        // Create new score
         const { data: newScoreData, error } = await supabase
           .from('task_scores')
           .insert([{
@@ -201,7 +307,6 @@ export default function TaskScoringDialog({
 
         if (error) throw error;
 
-        // Log history
         await supabase.from('score_adjustment_history').insert([{
           adjustment_type: 'task',
           target_id: newScoreData.id,
@@ -224,188 +329,176 @@ export default function TaskScoringDialog({
     }
   };
 
-  // Save group score (same score for all members)
+  // Save group score
   const handleSaveGroupScore = async () => {
     if (!task || !user || assignedMembers.length === 0) return;
-
-    setIsLoading(true);
-    try {
-      const newScore = 100 + groupAdjustment;
-
-      for (const member of assignedMembers) {
-        const existingScore = taskScores.find(
-          ts => ts.task_id === task.id && ts.user_id === member.user_id
-        );
-
-        if (existingScore) {
-          const previousScore = existingScore.final_score || 100;
-
-          await supabase
-            .from('task_scores')
-            .update({
-              adjustment: groupAdjustment,
-              adjustment_reason: groupReason || null,
-              adjusted_by: user.id,
-              adjusted_at: new Date().toISOString(),
-              final_score: newScore,
-            })
-            .eq('id', existingScore.id);
-
-          await supabase.from('score_adjustment_history').insert([{
-            adjustment_type: 'task',
-            target_id: existingScore.id,
-            user_id: member.user_id,
-            previous_score: previousScore,
-            new_score: newScore,
-            adjustment_value: groupAdjustment,
-            reason: groupReason || 'Chấm điểm task (nhóm)',
-            adjusted_by: user.id,
-          }]);
-        } else {
-          const { data: newScoreData, error } = await supabase
-            .from('task_scores')
-            .insert([{
-              task_id: task.id,
-              user_id: member.user_id,
-              base_score: 100,
-              adjustment: groupAdjustment,
-              adjustment_reason: groupReason || null,
-              adjusted_by: user.id,
-              adjusted_at: new Date().toISOString(),
-              final_score: newScore,
-            }])
-            .select()
-            .single();
-
-          if (!error && newScoreData) {
-            await supabase.from('score_adjustment_history').insert([{
-              adjustment_type: 'task',
-              target_id: newScoreData.id,
-              user_id: member.user_id,
-              previous_score: 100,
-              new_score: newScore,
-              adjustment_value: groupAdjustment,
-              reason: groupReason || 'Chấm điểm task (nhóm)',
-              adjusted_by: user.id,
-            }]);
-          }
-        }
-      }
-
-      toast({ 
-        title: 'Đã chấm điểm cho tất cả thành viên',
-        description: `${assignedMembers.length} thành viên đã được chấm ${newScore} điểm`
-      });
-      onScoreUpdated();
-      onClose();
-    } catch (error: any) {
-      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
+    await handleQuickScoreAll(groupAdjustment, groupReason);
   };
 
-  const getScoredStatus = () => {
-    const scoredCount = memberEdits.filter(e => e.isScored).length;
-    const totalCount = memberEdits.length;
-    return { scoredCount, totalCount };
-  };
-
-  const { scoredCount, totalCount } = getScoredStatus();
+  const { scoredCount, totalCount } = useMemo(() => ({
+    scoredCount: memberEdits.filter(e => e.isScored).length,
+    totalCount: memberEdits.length,
+  }), [memberEdits]);
 
   if (!task) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[1280px] h-[720px] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-        {/* Header */}
-        <DialogHeader className="shrink-0 p-6 pb-4 border-b">
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-xl bg-primary/10">
-              <Target className="w-6 h-6 text-primary" />
+      <DialogContent className="max-w-[95vw] w-[900px] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+        {/* Compact Header */}
+        <DialogHeader className="shrink-0 p-5 pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <Target className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <DialogTitle className="text-xl font-bold">Chấm điểm Task</DialogTitle>
-              <DialogDescription className="mt-1">
-                <span className="font-medium text-foreground text-base">{task.title}</span>
-              </DialogDescription>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant="outline" className="gap-1">
+              <DialogTitle className="text-lg font-bold line-clamp-1">{task.title}</DialogTitle>
+              <div className="flex items-center gap-2 mt-1.5">
+                <Badge variant="outline" className="gap-1 text-xs">
                   <Users className="w-3 h-3" />
-                  {totalCount} thành viên
+                  {totalCount} người
                 </Badge>
                 {scoredCount === totalCount && totalCount > 0 ? (
-                  <Badge className="bg-green-500 gap-1">
+                  <Badge className="bg-green-500 gap-1 text-xs">
                     <CheckCircle className="w-3 h-3" />
                     Đã chấm đủ
                   </Badge>
                 ) : scoredCount > 0 ? (
-                  <Badge variant="secondary" className="gap-1">
-                    <AlertCircle className="w-3 h-3" />
+                  <Badge variant="secondary" className="gap-1 text-xs">
                     {scoredCount}/{totalCount} đã chấm
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="gap-1 text-muted-foreground">
-                    <AlertCircle className="w-3 h-3" />
+                  <Badge variant="outline" className="gap-1 text-xs text-muted-foreground">
                     Chưa chấm
                   </Badge>
                 )}
               </div>
             </div>
+            <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0">
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         </DialogHeader>
 
-        {/* Tabs for scoring mode */}
-        <Tabs value={scoringMode} onValueChange={(v) => setScoringMode(v as 'group' | 'individual')} className="flex-1 flex flex-col overflow-hidden">
-          <div className="shrink-0 px-6 pt-4">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="group" className="gap-2">
-                <UsersRound className="w-4 h-4" />
-                Chấm theo nhóm
+        {/* Tabs */}
+        <Tabs value={scoringMode} onValueChange={(v) => setScoringMode(v as any)} className="flex-1 flex flex-col overflow-hidden">
+          <div className="shrink-0 px-5 pt-4">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="quick" className="gap-1.5 text-xs">
+                <Zap className="w-3.5 h-3.5" />
+                Chấm nhanh
               </TabsTrigger>
-              <TabsTrigger value="individual" className="gap-2">
-                <UserCheck className="w-4 h-4" />
-                Chấm riêng lẻ
+              <TabsTrigger value="group" className="gap-1.5 text-xs">
+                <UsersRound className="w-3.5 h-3.5" />
+                Theo nhóm
+              </TabsTrigger>
+              <TabsTrigger value="individual" className="gap-1.5 text-xs">
+                <UserCheck className="w-3.5 h-3.5" />
+                Riêng lẻ
               </TabsTrigger>
             </TabsList>
           </div>
 
+          {/* Quick Scoring Tab - NEW */}
+          <TabsContent value="quick" className="flex-1 overflow-auto px-5 pb-5 mt-4">
+            <div className="space-y-4">
+              {/* Quick Score Buttons Grid */}
+              <div>
+                <Label className="text-sm font-medium mb-3 block">Chọn mức điểm cho tất cả {totalCount} thành viên:</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  {QUICK_SCORES.map((preset) => (
+                    <Button
+                      key={preset.value}
+                      variant="outline"
+                      className={`h-auto py-4 flex flex-col items-center gap-1 border-2 hover:border-primary/50 transition-all ${isLoading ? 'opacity-50' : ''}`}
+                      onClick={() => handleQuickScoreAll(preset.value, preset.description)}
+                      disabled={isLoading || totalCount === 0}
+                    >
+                      <span className={`text-2xl font-bold ${getScoreColor(100 + preset.value)}`}>
+                        {preset.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{preset.description}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Members Preview */}
+              <div className="p-4 rounded-xl bg-muted/50 border">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">Thành viên sẽ được chấm điểm:</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {assignedMembers.map(member => {
+                    const edit = memberEdits.find(e => e.userId === member.user_id);
+                    return (
+                      <div 
+                        key={member.user_id} 
+                        className="flex items-center gap-2 px-3 py-1.5 bg-background rounded-full border"
+                      >
+                        <UserAvatar 
+                          src={member.profiles?.avatar_url}
+                          name={member.profiles?.full_name}
+                          size="xs"
+                        />
+                        <span className="text-sm">{member.profiles?.full_name}</span>
+                        {edit?.isScored && (
+                          <Badge variant="secondary" className="text-xs h-5 px-1.5">
+                            {edit.currentScore}
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {isLoading && (
+                <div className="flex items-center justify-center gap-2 text-primary py-4">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Đang lưu điểm...</span>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
           {/* Group Scoring Tab */}
-          <TabsContent value="group" className="flex-1 overflow-auto px-6 pb-6 mt-4">
+          <TabsContent value="group" className="flex-1 overflow-auto px-5 pb-5 mt-4">
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Award className="w-5 h-5 text-primary" />
-                  Chấm điểm chung cho tất cả thành viên
+                  Chấm điểm tùy chỉnh cho cả nhóm
                 </CardTitle>
                 <CardDescription>
-                  Áp dụng cùng một mức điểm cho toàn bộ {totalCount} thành viên tham gia task này
+                  Nhập mức điều chỉnh điểm và lý do
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-5">
                 {/* Score Preview */}
-                <div className="flex items-center justify-center gap-8 p-6 bg-muted/50 rounded-xl">
+                <div className="flex items-center justify-center gap-6 p-5 bg-muted/50 rounded-xl">
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Điểm gốc</p>
-                    <span className="text-3xl font-bold">100</span>
+                    <p className="text-xs text-muted-foreground mb-1">Điểm gốc</p>
+                    <span className="text-2xl font-bold">100</span>
                   </div>
                   <div className="text-center">
                     {getAdjustmentIcon(groupAdjustment)}
-                    <p className="text-sm text-muted-foreground mb-1">Điều chỉnh</p>
-                    <span className={`text-3xl font-bold ${groupAdjustment > 0 ? 'text-green-500' : groupAdjustment < 0 ? 'text-destructive' : ''}`}>
+                    <p className="text-xs text-muted-foreground mb-1">Điều chỉnh</p>
+                    <span className={`text-2xl font-bold ${groupAdjustment > 0 ? 'text-green-500' : groupAdjustment < 0 ? 'text-destructive' : ''}`}>
                       {groupAdjustment > 0 ? '+' : ''}{groupAdjustment}
                     </span>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Điểm cuối</p>
-                    <span className={`text-4xl font-bold ${getScoreColor(100 + groupAdjustment)}`}>
+                    <p className="text-xs text-muted-foreground mb-1">Điểm cuối</p>
+                    <span className={`text-3xl font-bold ${getScoreColor(100 + groupAdjustment)}`}>
                       {100 + groupAdjustment}
                     </span>
                   </div>
                 </div>
 
-                {/* Adjustment Input */}
-                <div className="grid grid-cols-2 gap-6">
+                {/* Inputs */}
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Điều chỉnh điểm</Label>
                     <Input
@@ -414,11 +507,8 @@ export default function TaskScoringDialog({
                       onChange={(e) => setGroupAdjustment(Number(e.target.value))}
                       min={-100}
                       max={100}
-                      className="text-lg h-12"
+                      className="h-11"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Nhập số âm để trừ điểm, số dương để cộng điểm
-                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>
@@ -427,57 +517,37 @@ export default function TaskScoringDialog({
                     <Textarea
                       value={groupReason}
                       onChange={(e) => setGroupReason(e.target.value)}
-                      placeholder="Nhập lý do chấm điểm..."
-                      rows={3}
+                      placeholder="Nhập lý do..."
+                      rows={2}
                     />
                   </div>
                 </div>
 
-                {/* Members Preview */}
-                <div className="space-y-2">
-                  <Label>Thành viên sẽ được chấm điểm:</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {assignedMembers.map(member => (
-                      <div key={member.user_id} className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full">
-                        <UserAvatar 
-                          src={member.profiles?.avatar_url}
-                          name={member.profiles?.full_name}
-                          size="xs"
-                        />
-                        <span className="text-sm">{member.profiles?.full_name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Save Button */}
-                <div className="flex justify-end pt-4 border-t">
-                  <Button
-                    onClick={handleSaveGroupScore}
-                    disabled={isLoading || (groupAdjustment !== 0 && !groupReason.trim()) || totalCount === 0}
-                    size="lg"
-                    className="min-w-[200px]"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : (
-                      <Save className="w-4 h-4 mr-2" />
-                    )}
-                    Chấm điểm cho {totalCount} thành viên
-                  </Button>
-                </div>
+                <Button
+                  onClick={handleSaveGroupScore}
+                  disabled={isLoading || (groupAdjustment !== 0 && !groupReason.trim()) || totalCount === 0}
+                  className="w-full"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Chấm điểm cho {totalCount} thành viên
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* Individual Scoring Tab */}
-          <TabsContent value="individual" className="flex-1 overflow-hidden px-6 pb-6 mt-4">
+          <TabsContent value="individual" className="flex-1 overflow-hidden px-5 pb-5 mt-4">
             <ScrollArea className="h-full">
-              <div className="space-y-3 pr-4">
+              <div className="space-y-2 pr-2">
                 {memberEdits.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p className="text-lg">Chưa có thành viên nào được giao task này</p>
+                    <p>Chưa có thành viên nào được giao task này</p>
                   </div>
                 ) : (
                   memberEdits.map(edit => {
@@ -490,47 +560,42 @@ export default function TaskScoringDialog({
                         className={`transition-all ${
                           edit.isEditing
                             ? 'border-primary/50 bg-primary/5 shadow-md'
-                            : 'hover:bg-muted/50'
+                            : 'hover:bg-muted/30'
                         }`}
                       >
-                        <CardContent className="p-4">
-                          {/* Member Header */}
-                          <div className="flex items-center gap-4">
+                        <CardContent className="p-3">
+                          {/* Member Row */}
+                          <div className="flex items-center gap-3">
                             <UserAvatar 
                               src={profile?.avatar_url}
                               name={profile?.full_name}
-                              size="lg"
+                              size="md"
                             />
 
                             <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-base truncate">{profile?.full_name}</p>
-                              <p className="text-sm text-muted-foreground">{profile?.student_id}</p>
+                              <p className="font-medium truncate">{profile?.full_name}</p>
+                              <p className="text-xs text-muted-foreground">{profile?.student_id}</p>
                             </div>
 
                             {!edit.isEditing && (
                               <>
-                                {/* Score Display */}
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
                                   {edit.isScored ? (
                                     <>
                                       {edit.adjustment !== 0 && (
                                         <Badge
                                           variant={edit.adjustment > 0 ? 'default' : 'destructive'}
-                                          className={`text-sm ${edit.adjustment > 0 ? 'bg-green-500' : ''}`}
+                                          className={`text-xs ${edit.adjustment > 0 ? 'bg-green-500' : ''}`}
                                         >
-                                          {edit.adjustment > 0 ? '+' : ''}
-                                          {edit.adjustment}
+                                          {edit.adjustment > 0 ? '+' : ''}{edit.adjustment}
                                         </Badge>
                                       )}
-                                      <div className="flex items-center gap-1">
-                                        <span className={`text-2xl font-bold ${getScoreColor(edit.currentScore)}`}>
-                                          {edit.currentScore}
-                                        </span>
-                                        <Percent className="w-4 h-4 text-muted-foreground" />
-                                      </div>
+                                      <span className={`text-xl font-bold ${getScoreColor(edit.currentScore)}`}>
+                                        {edit.currentScore}
+                                      </span>
                                     </>
                                   ) : (
-                                    <Badge variant="outline" className="text-muted-foreground">
+                                    <Badge variant="outline" className="text-muted-foreground text-xs">
                                       Chưa chấm
                                     </Badge>
                                   )}
@@ -540,9 +605,9 @@ export default function TaskScoringDialog({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => toggleEditing(edit.userId)}
-                                  className="gap-1"
+                                  className="gap-1 h-8"
                                 >
-                                  <Edit2 className="w-4 h-4" />
+                                  <Edit2 className="w-3 h-3" />
                                   {edit.isScored ? 'Sửa' : 'Chấm'}
                                 </Button>
                               </>
@@ -551,45 +616,46 @@ export default function TaskScoringDialog({
 
                           {/* Editing Form */}
                           {edit.isEditing && (
-                            <div className="mt-4 space-y-4 pt-4 border-t">
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                  <Label className="text-sm">Điều chỉnh điểm</Label>
-                                  <div className="flex items-center gap-3">
+                            <div className="mt-3 space-y-3 pt-3 border-t">
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs">Điều chỉnh điểm</Label>
+                                  <div className="flex items-center gap-2">
                                     <Input
                                       type="number"
                                       value={edit.adjustment}
                                       onChange={e =>
                                         updateMemberScore(edit.userId, 'adjustment', Number(e.target.value))
                                       }
-                                      className="h-10"
+                                      className="h-9"
                                       min={-100}
                                       max={100}
                                     />
-                                    <div className="flex items-center gap-2 shrink-0 px-3 py-2 bg-muted rounded-lg">
+                                    <div className="flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 bg-muted rounded-lg">
                                       {getAdjustmentIcon(edit.adjustment)}
-                                      <span className={`text-lg font-bold ${getScoreColor(edit.currentScore)}`}>
+                                      <span className={`text-base font-bold ${getScoreColor(edit.currentScore)}`}>
                                         = {edit.currentScore}
                                       </span>
                                     </div>
                                   </div>
                                 </div>
-                                <div className="space-y-2">
-                                  <Label className="text-sm">
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs">
                                     Lý do {edit.adjustment !== 0 && <span className="text-destructive">*</span>}
                                   </Label>
                                   <Textarea
                                     value={edit.reason}
                                     onChange={e => updateMemberScore(edit.userId, 'reason', e.target.value)}
-                                    placeholder="Nhập lý do điều chỉnh điểm..."
-                                    rows={2}
+                                    placeholder="Nhập lý do..."
+                                    rows={1}
+                                    className="resize-none"
                                   />
                                 </div>
                               </div>
 
                               <div className="flex gap-2 justify-end">
                                 <Button
-                                  variant="outline"
+                                  variant="ghost"
                                   size="sm"
                                   onClick={() => toggleEditing(edit.userId)}
                                   disabled={isLoading}
@@ -602,9 +668,9 @@ export default function TaskScoringDialog({
                                   disabled={isLoading || (edit.adjustment !== 0 && !edit.reason.trim())}
                                 >
                                   {isLoading ? (
-                                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
                                   ) : (
-                                    <Save className="w-4 h-4 mr-1" />
+                                    <Save className="w-3 h-3 mr-1" />
                                   )}
                                   Lưu
                                 </Button>
