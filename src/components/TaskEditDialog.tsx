@@ -360,7 +360,6 @@ export default function TaskEditDialog({
                         groupId={task?.group_id || ''} 
                         placeholder="Mô tả công việc... (gõ # để chèn tài nguyên)" 
                         minHeight="100px"
-                        showPreview={true}
                       />
                     ) : (
                       <div className="p-2 rounded-md bg-muted/50 border text-sm min-h-[60px]">
