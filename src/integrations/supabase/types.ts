@@ -1156,6 +1156,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_vietnamese_slug: {
+        Args: { input_text: string }
+        Returns: string
+      }
       get_email_by_student_id: {
         Args: { _student_id: string }
         Returns: string
