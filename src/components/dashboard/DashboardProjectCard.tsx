@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FolderKanban, Users, Calendar, ExternalLink } from 'lucide-react';
+import { FolderKanban, Users, Calendar, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { Group } from '@/types/database';
 
@@ -21,10 +21,10 @@ export default function DashboardProjectCard({
   return (
     <Link
       to={`/p/${group.slug}`}
-      className="group relative block aspect-square rounded-2xl overflow-hidden bg-card border border-border/50 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300"
+      className="group relative block rounded-xl overflow-hidden bg-card border border-border/50 hover:border-primary/50 hover:shadow-lg transition-all duration-300"
     >
-      {/* Background Image or Gradient */}
-      <div className="absolute inset-0">
+      {/* Image Section - fixed aspect ratio */}
+      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         {group.image_url ? (
           <img
             src={group.image_url}
@@ -33,61 +33,49 @@ export default function DashboardProjectCard({
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-primary/20 via-primary/10 to-transparent" />
+          <div className="w-full h-full bg-gradient-to-br from-primary/20 via-primary/10 to-muted flex items-center justify-center">
+            <FolderKanban className="w-10 h-10 text-primary/40" />
+          </div>
         )}
-        {/* Overlay gradient for text readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+        
+        {/* Public badge - top right */}
+        {group.is_public && (
+          <Badge 
+            variant="secondary" 
+            className="absolute top-2 right-2 text-[10px] bg-background/90 backdrop-blur-sm px-1.5 py-0.5"
+          >
+            <Globe className="w-2.5 h-2.5 mr-0.5" />
+            Public
+          </Badge>
+        )}
       </div>
 
-      {/* Content */}
-      <div className="relative h-full flex flex-col justify-between p-4">
-        {/* Top Section - Icon and badges */}
-        <div className="flex items-start justify-between">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 backdrop-blur-sm flex items-center justify-center border border-primary/20">
-            <FolderKanban className="w-6 h-6 text-primary" />
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {group.is_public && (
-              <Badge variant="secondary" className="text-xs bg-background/80 backdrop-blur-sm">
-                <ExternalLink className="w-3 h-3 mr-1" />
-                Công khai
-              </Badge>
-            )}
-          </div>
-        </div>
+      {/* Content Section */}
+      <div className="p-3 space-y-1.5">
+        <h3 className="font-semibold text-sm leading-tight line-clamp-1 group-hover:text-primary transition-colors">
+          {group.name}
+        </h3>
+        
+        {group.description && (
+          <p className="text-xs text-muted-foreground line-clamp-1">
+            {group.description}
+          </p>
+        )}
 
-        {/* Bottom Section - Title and info */}
-        <div className="space-y-3">
-          <div>
-            <h3 className="font-bold text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
-              {group.name}
-            </h3>
-            {group.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                {group.description}
-              </p>
-            )}
-          </div>
-
-          {/* Meta info */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {group.class_code && (
-              <span className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-md">
-                <Users className="w-3 h-3" />
-                {group.class_code}
-              </span>
-            )}
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {formatDate(group.created_at)}
+        {/* Meta info */}
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground pt-1">
+          {group.class_code && (
+            <span className="flex items-center gap-0.5 bg-muted/70 px-1.5 py-0.5 rounded">
+              <Users className="w-2.5 h-2.5" />
+              {group.class_code}
             </span>
-          </div>
+          )}
+          <span className="flex items-center gap-0.5">
+            <Calendar className="w-2.5 h-2.5" />
+            {formatDate(group.created_at)}
+          </span>
         </div>
       </div>
-
-      {/* Hover effect overlay */}
-      <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
     </Link>
   );
 }
