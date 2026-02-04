@@ -18,20 +18,19 @@ interface ProjectNavigationProps {
 interface NavTab {
   id: string;
   label: string;
-  shortLabel: string;
   icon: React.ComponentType<{ className?: string }>;
   showAlways?: boolean;
   description: string;
 }
 
 const tabs: NavTab[] = [
-  { id: 'overview', label: 'Tổng quan', shortLabel: 'Tổng quan', icon: LayoutDashboard, showAlways: true, description: 'Xem tổng quan dự án' },
-  { id: 'tasks', label: 'Task', shortLabel: 'Task', icon: Layers, showAlways: true, description: 'Quản lý công việc' },
-  { id: 'resources', label: 'Tài nguyên', shortLabel: 'File', icon: FolderOpen, showAlways: true, description: 'File & tài liệu' },
-  { id: 'members', label: 'Thành viên', shortLabel: 'Nhóm', icon: Users, showAlways: true, description: 'Danh sách thành viên' },
-  { id: 'scores', label: 'Điểm', shortLabel: 'Điểm', icon: Award, showAlways: true, description: 'Điểm số & đánh giá' },
-  { id: 'logs', label: 'Nhật ký', shortLabel: 'Log', icon: Activity, showAlways: true, description: 'Lịch sử hoạt động' },
-  { id: 'settings', label: 'Cài đặt', shortLabel: 'Cài đặt', icon: Settings, showAlways: false, description: 'Cấu hình dự án' },
+  { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard, showAlways: true, description: 'Xem tổng quan dự án' },
+  { id: 'tasks', label: 'Task', icon: Layers, showAlways: true, description: 'Quản lý công việc' },
+  { id: 'resources', label: 'Tài nguyên', icon: FolderOpen, showAlways: true, description: 'File & tài liệu' },
+  { id: 'members', label: 'Thành viên', icon: Users, showAlways: true, description: 'Danh sách thành viên' },
+  { id: 'scores', label: 'Điểm', icon: Award, showAlways: true, description: 'Điểm số & đánh giá' },
+  { id: 'logs', label: 'Nhật ký', icon: Activity, showAlways: true, description: 'Lịch sử hoạt động' },
+  { id: 'settings', label: 'Cài đặt', icon: Settings, showAlways: false, description: 'Cấu hình dự án' },
 ];
 
 export default function ProjectNavigation({
@@ -41,67 +40,103 @@ export default function ProjectNavigation({
   isGroupCreator,
   membersCount,
 }: ProjectNavigationProps) {
+  const showSettings = isLeaderInGroup && isGroupCreator;
   const visibleTabs = tabs.filter(tab => 
-    tab.showAlways || (tab.id === 'settings' && isLeaderInGroup && isGroupCreator)
+    tab.showAlways || (tab.id === 'settings' && showSettings)
   );
 
   return (
     <div className="w-full border-b border-border/40 sticky top-16 z-40 bg-background/95 backdrop-blur-sm">
-      <div className="max-w-[1600px] mx-auto px-3">
-        {/* Navigation tabs - centered */}
-        <nav className="flex items-center justify-center py-1.5">
-          <div className="inline-flex items-center bg-muted/60 rounded-lg p-0.5 gap-0.5">
+      <div className="max-w-[1600px] mx-auto px-2 sm:px-4">
+        {/* Navigation tabs - flex layout for proper centering */}
+        <nav className="flex items-center justify-center py-1.5 overflow-x-auto scrollbar-hide">
+          <div className="inline-flex items-center bg-muted/50 rounded-lg p-0.5">
             <TooltipProvider delayDuration={300}>
-              {visibleTabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                
-                return (
-                  <Tooltip key={tab.id}>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => onTabChange(tab.id)}
-                        className={cn(
-                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-150",
-                          "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                          isActive 
-                            ? "bg-background shadow-sm text-foreground" 
-                            : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                        )}
-                      >
-                        <Icon className={cn(
-                          "w-3.5 h-3.5 shrink-0",
-                          isActive && "text-primary"
-                        )} />
-                        
-                        {/* Show short label on sm, full label on md+ */}
-                        <span className="sm:hidden">{tab.shortLabel}</span>
-                        <span className="hidden sm:inline">{tab.label}</span>
-                        
-                        {/* Member count badge - compact */}
-                        {tab.id === 'members' && (
-                          <span className={cn(
-                            "px-1 py-px text-[10px] font-medium rounded",
-                            isActive 
-                              ? "bg-primary/15 text-primary" 
-                              : "bg-muted-foreground/20 text-muted-foreground"
-                          )}>
-                            {membersCount}
-                          </span>
-                        )}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={6}>
-                      <p className="font-medium text-xs">{tab.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{tab.description}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
+              {/* Main tabs group */}
+              <div className="flex items-center gap-0.5">
+                {visibleTabs.filter(t => t.id !== 'settings').map((tab) => (
+                  <NavTabButton
+                    key={tab.id}
+                    tab={tab}
+                    isActive={activeTab === tab.id}
+                    onClick={() => onTabChange(tab.id)}
+                    membersCount={tab.id === 'members' ? membersCount : undefined}
+                  />
+                ))}
+              </div>
+              
+              {/* Settings tab - separated with divider for leaders */}
+              {showSettings && (
+                <>
+                  <div className="w-px h-5 bg-border/50 mx-1" />
+                  <NavTabButton
+                    tab={tabs.find(t => t.id === 'settings')!}
+                    isActive={activeTab === 'settings'}
+                    onClick={() => onTabChange('settings')}
+                    isSettings
+                  />
+                </>
+              )}
             </TooltipProvider>
           </div>
         </nav>
       </div>
     </div>
+  );
+}
+
+interface NavTabButtonProps {
+  tab: NavTab;
+  isActive: boolean;
+  onClick: () => void;
+  membersCount?: number;
+  isSettings?: boolean;
+}
+
+function NavTabButton({ tab, isActive, onClick, membersCount, isSettings }: NavTabButtonProps) {
+  const Icon = tab.icon;
+  
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={onClick}
+          className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-150",
+            "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+            "whitespace-nowrap",
+            isActive 
+              ? "bg-background shadow-sm text-foreground" 
+              : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+            isSettings && !isActive && "text-muted-foreground/70"
+          )}
+        >
+          <Icon className={cn(
+            "w-3.5 h-3.5 shrink-0",
+            isActive && "text-primary",
+            isSettings && isActive && "text-amber-500"
+          )} />
+          
+          {/* Label - hide on very small screens, show icon only */}
+          <span className="hidden xs:inline sm:inline">{tab.label}</span>
+          
+          {/* Member count badge */}
+          {membersCount !== undefined && (
+            <span className={cn(
+              "px-1 py-px text-[10px] font-medium rounded",
+              isActive 
+                ? "bg-primary/15 text-primary" 
+                : "bg-muted-foreground/20 text-muted-foreground"
+            )}>
+              {membersCount}
+            </span>
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={6}>
+        <p className="font-medium text-xs">{tab.label}</p>
+        <p className="text-[10px] text-muted-foreground">{tab.description}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
