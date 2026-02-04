@@ -101,49 +101,53 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Fixed Top Navigation Bar */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-primary shadow-lg">
-        <div className="h-full max-w-[1600px] mx-auto px-4 flex items-center justify-between">
-          {/* Left: Logo & Brand */}
-          <Link to="/dashboard" className="flex items-center gap-3 group">
-            <img src={uehLogo} alt="UEH Logo" className="h-10 w-auto drop-shadow-md group-hover:scale-105 transition-transform" />
-            <span className="font-bold text-lg text-primary-foreground hidden sm:block">TaskFlow</span>
-          </Link>
+      <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-primary shadow-lg">
+        <div className="h-full max-w-[1600px] mx-auto px-4 flex items-center">
+          {/* Left: Logo & Brand - fixed width */}
+          <div className="w-[140px] shrink-0">
+            <Link to="/dashboard" className="flex items-center gap-2 group">
+              <img src={uehLogo} alt="UEH Logo" className="h-8 w-auto drop-shadow-md group-hover:scale-105 transition-transform" />
+              <span className="font-bold text-sm text-primary-foreground hidden sm:block">TaskFlow</span>
+            </Link>
+          </div>
 
-          {/* Center: Navigation Menu */}
-          <nav className="hidden md:flex items-center bg-white/10 rounded-full px-1 py-1">
-            <TooltipProvider delayDuration={300}>
-              {navigation
-                .filter(item => !item.requiresAdmin || isAdmin)
-                .map((item) => {
-                  const isActive = location.pathname === item.href || 
-                    (item.href === '/groups' && (location.pathname.startsWith('/groups/') || location.pathname.startsWith('/p/')));
-                  return (
-                    <Tooltip key={item.name}>
-                      <TooltipTrigger asChild>
-                        <Link
-                          to={item.href}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
-                            isActive 
-                              ? 'bg-white text-primary shadow-sm' 
-                              : 'text-white/80 hover:bg-white/15 hover:text-white'
-                          }`}
-                        >
-                          <item.icon className="w-3.5 h-3.5" />
-                          <span className="hidden lg:block">{item.name}</span>
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" sideOffset={8}>
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.description}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-            </TooltipProvider>
+          {/* Center: Navigation Menu - flex-1 to fill space and center content */}
+          <nav className="flex-1 hidden md:flex items-center justify-center">
+            <div className="inline-flex items-center bg-white/10 rounded-full px-1 py-0.5">
+              <TooltipProvider delayDuration={300}>
+                {navigation
+                  .filter(item => !item.requiresAdmin || isAdmin)
+                  .map((item) => {
+                    const isActive = location.pathname === item.href || 
+                      (item.href === '/groups' && (location.pathname.startsWith('/groups/') || location.pathname.startsWith('/p/')));
+                    return (
+                      <Tooltip key={item.name}>
+                        <TooltipTrigger asChild>
+                          <Link
+                            to={item.href}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+                              isActive 
+                                ? 'bg-white text-primary shadow-sm' 
+                                : 'text-white/80 hover:bg-white/15 hover:text-white'
+                            }`}
+                          >
+                            <item.icon className="w-3.5 h-3.5" />
+                            <span className="hidden lg:block">{item.name}</span>
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" sideOffset={8}>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+              </TooltipProvider>
+            </div>
           </nav>
 
-          {/* Right: Notification Bell & User Info */}
-          <div className="flex items-center gap-2">
+          {/* Right: User area - fixed width to balance with left */}
+          <div className="w-[140px] shrink-0 flex items-center justify-end gap-2">
             <NotificationBell />
             
             <DropdownMenu>
@@ -236,7 +240,7 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
       </header>
 
       {/* Main Content - with top padding for fixed header */}
-      <main className="flex-1 pt-16">
+      <main className="flex-1 pt-14">
         <div className="max-w-[1600px] mx-auto p-6">
           {children}
         </div>

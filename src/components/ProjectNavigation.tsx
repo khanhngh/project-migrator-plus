@@ -46,39 +46,48 @@ export default function ProjectNavigation({
   );
 
   return (
-    <div className="w-full border-b border-border/40 sticky top-16 z-40 bg-background/95 backdrop-blur-sm">
-      <div className="max-w-[1600px] mx-auto px-2 sm:px-4">
-        {/* Navigation tabs - flex layout for proper centering */}
-        <nav className="flex items-center justify-center py-1.5 overflow-x-auto scrollbar-hide">
-          <div className="inline-flex items-center bg-muted/50 rounded-lg p-0.5">
-            <TooltipProvider delayDuration={300}>
-              {/* Main tabs group */}
-              <div className="flex items-center gap-0.5">
-                {visibleTabs.filter(t => t.id !== 'settings').map((tab) => (
-                  <NavTabButton
-                    key={tab.id}
-                    tab={tab}
-                    isActive={activeTab === tab.id}
-                    onClick={() => onTabChange(tab.id)}
-                    membersCount={tab.id === 'members' ? membersCount : undefined}
-                  />
-                ))}
-              </div>
-              
-              {/* Settings tab - separated with divider for leaders */}
-              {showSettings && (
-                <>
-                  <div className="w-px h-5 bg-border/50 mx-1" />
-                  <NavTabButton
-                    tab={tabs.find(t => t.id === 'settings')!}
-                    isActive={activeTab === 'settings'}
-                    onClick={() => onTabChange('settings')}
-                    isSettings
-                  />
-                </>
-              )}
-            </TooltipProvider>
+    <div className="w-full border-b border-border/40 sticky top-14 z-40 bg-background/95 backdrop-blur-sm">
+      <div className="max-w-[1600px] mx-auto px-4">
+        {/* Navigation tabs - use same layout structure as header */}
+        <nav className="flex items-center py-1">
+          {/* Left spacer - matches header logo width */}
+          <div className="w-[140px] shrink-0 hidden md:block" />
+          
+          {/* Center: tabs */}
+          <div className="flex-1 flex items-center justify-center overflow-x-auto scrollbar-hide">
+            <div className="inline-flex items-center bg-muted/50 rounded-lg p-0.5">
+              <TooltipProvider delayDuration={300}>
+                {/* Main tabs group */}
+                <div className="flex items-center gap-0.5">
+                  {visibleTabs.filter(t => t.id !== 'settings').map((tab) => (
+                    <NavTabButton
+                      key={tab.id}
+                      tab={tab}
+                      isActive={activeTab === tab.id}
+                      onClick={() => onTabChange(tab.id)}
+                      membersCount={tab.id === 'members' ? membersCount : undefined}
+                    />
+                  ))}
+                </div>
+                
+                {/* Settings tab - separated with divider for leaders */}
+                {showSettings && (
+                  <>
+                    <div className="w-px h-5 bg-border/50 mx-1" />
+                    <NavTabButton
+                      tab={tabs.find(t => t.id === 'settings')!}
+                      isActive={activeTab === 'settings'}
+                      onClick={() => onTabChange('settings')}
+                      isSettings
+                    />
+                  </>
+                )}
+              </TooltipProvider>
+            </div>
           </div>
+          
+          {/* Right spacer - matches header user area width */}
+          <div className="w-[140px] shrink-0 hidden md:block" />
         </nav>
       </div>
     </div>
