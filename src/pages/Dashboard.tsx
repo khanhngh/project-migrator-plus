@@ -13,7 +13,6 @@ import {
   FolderKanban,
   ArrowRight,
   Loader2,
-  Sparkles,
 } from 'lucide-react';
 import type { Group } from '@/types/database';
 
@@ -33,7 +32,6 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch groups where user is a member
       const { data: memberData, error: memberError } = await supabase
         .from('group_members')
         .select('group_id')
@@ -65,8 +63,8 @@ export default function Dashboard() {
   };
 
   const getRoleBadge = () => {
-    if (isAdmin) return <Badge className="bg-destructive/20 text-destructive">Admin</Badge>;
-    if (isLeader) return <Badge className="bg-warning/20 text-warning">Leader</Badge>;
+    if (isAdmin) return <Badge className="bg-destructive/10 text-destructive">Admin</Badge>;
+    if (isLeader) return <Badge className="bg-warning/10 text-warning">Leader</Badge>;
     return <Badge variant="secondary">Member</Badge>;
   };
 
@@ -82,7 +80,6 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      {/* First-time onboarding: Password change + Avatar upload */}
       {user && profile && mustChangePassword && (
         <FirstTimeOnboarding
           open={mustChangePassword}
@@ -94,43 +91,39 @@ export default function Dashboard() {
         />
       )}
 
-      <div className="space-y-8">
-        {/* Welcome Section - More Prominent */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary/80 p-8 text-primary-foreground">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-
-          <div className="relative flex items-center gap-6">
-            <UserAvatar
-              src={profile?.avatar_url}
-              name={profile?.full_name}
-              size="xl"
-              className="border-4 border-white/20 shadow-xl"
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <Sparkles className="w-6 h-6 text-accent" />
-                <span className="text-white/80">Xin chào,</span>
-              </div>
-              <h1 className="text-3xl font-bold mb-2">{profile?.full_name}</h1>
-              <div className="flex items-center gap-3">
-                <span className="text-white/70">MSSV: {profile?.student_id}</span>
-                {getRoleBadge()}
+      <div className="space-y-6">
+        {/* Welcome Card */}
+        <Card className="shadow-card">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-5">
+              <UserAvatar
+                src={profile?.avatar_url}
+                name={profile?.full_name}
+                size="xl"
+                className="border-2 border-border"
+              />
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground mb-1">Xin chào,</p>
+                <h1 className="text-2xl font-bold text-foreground mb-1">{profile?.full_name}</h1>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">MSSV: {profile?.student_id}</span>
+                  {getRoleBadge()}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Stats Overview - Minimal */}
+        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
+          <Card className="shadow-card">
             <CardContent className="p-5">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                   <FolderKanban className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-primary">{groups.length}</p>
+                  <p className="text-3xl font-bold text-foreground">{groups.length}</p>
                   <p className="text-sm text-muted-foreground">Projects</p>
                 </div>
               </div>
@@ -138,8 +131,8 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* My Projects - Simplified without members */}
-        <Card>
+        {/* My Projects */}
+        <Card className="shadow-card">
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <div>
               <CardTitle className="text-xl">Projects của tôi</CardTitle>
@@ -175,4 +168,3 @@ export default function Dashboard() {
     </DashboardLayout>
   );
 }
-
