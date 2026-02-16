@@ -93,27 +93,27 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
   };
 
   const getRoleBadge = () => {
-    if (isAdmin) return <Badge className="bg-destructive/10 text-destructive text-xs font-medium">Admin</Badge>;
-    if (isLeader) return <Badge className="bg-warning/10 text-warning text-xs font-medium">Leader</Badge>;
+    if (isAdmin) return <Badge className="bg-destructive/20 text-destructive text-xs font-medium">Admin</Badge>;
+    if (isLeader) return <Badge className="bg-warning/20 text-warning text-xs font-medium">Leader</Badge>;
     return <Badge variant="secondary" className="text-xs font-medium">Member</Badge>;
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Fixed Top Navigation Bar */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-card border-b border-border shadow-card">
+      <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-primary shadow-lg">
         <div className="h-full max-w-[1600px] mx-auto px-4 flex items-center">
-          {/* Left: Logo & Brand */}
+          {/* Left: Logo & Brand - fixed width */}
           <div className="w-[140px] shrink-0">
             <Link to="/dashboard" className="flex items-center gap-2 group">
-              <img src={uehLogo} alt="UEH Logo" className="h-8 w-auto group-hover:scale-105 transition-transform" />
-              <span className="font-bold text-sm text-foreground hidden sm:block">Teamworks</span>
+              <img src={uehLogo} alt="UEH Logo" className="h-8 w-auto drop-shadow-md group-hover:scale-105 transition-transform" />
+              <span className="font-bold text-sm text-primary-foreground hidden sm:block">Teamworks</span>
             </Link>
           </div>
 
-          {/* Center: Navigation Menu */}
+          {/* Center: Navigation Menu - flex-1 to fill space and center content */}
           <nav className="flex-1 hidden md:flex items-center justify-center">
-            <div className="inline-flex items-center bg-muted rounded-lg px-1 py-0.5 gap-0.5">
+            <div className="inline-flex items-center bg-white/10 rounded-full px-1 py-0.5">
               <TooltipProvider delayDuration={300}>
                 {navigation
                   .filter(item => !item.requiresAdmin || isAdmin)
@@ -125,10 +125,10 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
                         <TooltipTrigger asChild>
                           <Link
                             to={item.href}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
                               isActive 
-                                ? 'bg-card text-primary shadow-card' 
-                                : 'text-muted-foreground hover:text-foreground hover:bg-card/60'
+                                ? 'bg-white text-primary shadow-sm' 
+                                : 'text-white/80 hover:bg-white/15 hover:text-white'
                             }`}
                           >
                             <item.icon className="w-3.5 h-3.5" />
@@ -146,7 +146,7 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
             </div>
           </nav>
 
-          {/* Right: User area */}
+          {/* Right: User area - fixed width to balance with left */}
           <div className="w-[140px] shrink-0 flex items-center justify-end gap-2">
             <NotificationBell />
             
@@ -154,23 +154,23 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex items-center gap-2 h-auto py-1.5 px-2 hover:bg-muted"
+                  className="flex items-center gap-2 h-auto py-1.5 px-2 hover:bg-white/10 text-white"
                 >
                   <UserAvatar 
                     src={profile?.avatar_url} 
                     name={profile?.full_name}
                     size="md"
-                    className="border-2 border-border"
+                    className="border-2 border-white/30"
                   />
                   <div className="hidden sm:flex flex-col items-start">
-                    <span className="text-sm font-semibold text-foreground truncate max-w-[120px]">
+                    <span className="text-sm font-semibold text-white truncate max-w-[120px]">
                       {profile?.full_name || 'Đang tải...'}
                     </span>
                     <div className="flex items-center gap-1.5">
                       {getRoleBadge()}
                     </div>
                   </div>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground hidden sm:block" />
+                  <ChevronDown className="w-4 h-4 text-white/70 hidden sm:block" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-60">
@@ -202,7 +202,7 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
             <Button 
               variant="ghost" 
               size="icon" 
-              className="md:hidden"
+              className="md:hidden text-white hover:bg-white/10"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -212,8 +212,8 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
 
         {/* Mobile Navigation Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-14 left-0 right-0 bg-card border-b border-border shadow-card-lg">
-            <nav className="p-4 space-y-1">
+          <div className="md:hidden absolute top-16 left-0 right-0 bg-primary border-t border-white/10 shadow-lg">
+            <nav className="p-4 space-y-2">
               {navigation
                 .filter(item => !item.requiresAdmin || isAdmin)
                 .map((item) => {
@@ -223,23 +223,23 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
                       key={item.name}
                       to={item.href}
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                        isActive 
-                          ? 'bg-primary/5 text-primary' 
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }`}
-                    >
-                      <item.icon className="w-5 h-5" />
-                      <span>{item.name}</span>
-                    </Link>
-                  );
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold tracking-wider transition-all ${
+                      isActive 
+                        ? 'bg-white/20 text-white' 
+                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span>{item.name}</span>
+                  </Link>
+                );
                 })}
             </nav>
           </div>
         )}
       </header>
 
-      {/* Main Content */}
+      {/* Main Content - with top padding for fixed header */}
       <main className="flex-1 pt-14">
         <div className="max-w-[1600px] mx-auto p-6">
           {children}
@@ -271,7 +271,7 @@ export default function DashboardLayout({ children, projectId, projectName, zalo
         </DialogContent>
       </Dialog>
 
-      {/* AI Assistant */}
+      {/* AI Assistant - Available on all pages */}
       <AIAssistantButton projectId={projectId} projectName={projectName} zaloLink={zaloLink} />
     </div>
   );
