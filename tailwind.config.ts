@@ -86,8 +86,8 @@ export default {
         "2xl": "calc(var(--radius) + 8px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        heading: ["Poppins", "system-ui", "sans-serif"],
+        sans: ["Inter", "Roboto", "system-ui", "sans-serif"],
+        heading: ["Roboto", "Inter", "system-ui", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {
