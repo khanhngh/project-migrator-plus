@@ -4,42 +4,48 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Teamworks UEH Design System - Red Theme (#D70018) */
+/* Teamworks UEH — CellphoneS-inspired Design System */
 @layer base {
   :root {
-    /* Brand Colors - CellphoneS-inspired Red */
+    /* ── CellphoneS Brand Palette ── */
     --color-brand-50: 354 80% 95%;
     --color-brand-100: 354 78% 90%;
     --color-brand-200: 354 75% 82%;
     --color-brand-300: 354 80% 68%;
     --color-brand-400: 354 90% 52%;
-    --color-brand-500: 354 100% 42%;
-    --color-brand-600: 354 100% 38%;
+    --color-brand-500: 354 100% 42%;   /* #D70018 */
+    --color-brand-600: 354 100% 38%;   /* hover */
     --color-brand-700: 354 100% 32%;
     --color-brand-800: 354 100% 26%;
     --color-brand-900: 354 95% 20%;
 
-    /* Semantic mapping */
-    --background: 220 20% 97%;
-    --foreground: 220 20% 10%;
+    /* ── Semantic: 60-30-10 rule ── */
+    /* 60 % — Background */
+    --background: 214 20% 97%;          /* #f4f6f8 */
+    --foreground: 210 29% 10%;          /* near-black */
 
+    /* Card = pure white floating on grey */
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 210 29% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 210 29% 10%;
 
+    /* 10 % — Primary (Red accent) */
     --primary: 354 100% 42%;
     --primary-foreground: 0 0% 100%;
 
+    /* Secondary = light red tint for badges/tags */
     --secondary: 354 80% 95%;
-    --secondary-foreground: 354 100% 42%;
+    --secondary-foreground: 354 100% 38%;
 
-    --accent: 220 90% 56%;
+    /* Accent = blue for links / info */
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    /* 30 % — Muted text */
+    --muted: 214 15% 94%;
+    --muted-foreground: 215 10% 46%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -50,24 +56,24 @@
     --warning: 43 96% 50%;
     --warning-foreground: 0 0% 100%;
 
-    /* Stage colors for visual distinction */
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+
+    /* Stage colors */
     --stage-1: 354 100% 42%;
-    --stage-2: 220 80% 50%;
+    --stage-2: 217 80% 50%;
     --stage-3: 260 70% 55%;
     --stage-4: 320 70% 50%;
     --stage-5: 43 90% 50%;
     --stage-6: 145 60% 40%;
 
-    --info: 220 90% 56%;
-    --info-foreground: 0 0% 100%;
-
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
+    --border: 214 18% 90%;
+    --input: 214 18% 90%;
     --ring: 354 100% 42%;
 
     --radius: 0.5rem;
 
-    /* Sidebar */
+    /* Sidebar = red header bar */
     --sidebar-background: 354 100% 42%;
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 0 0% 100%;
@@ -75,41 +81,41 @@
     --sidebar-accent: 354 100% 38%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 354 100% 32%;
-    --sidebar-ring: 220 90% 56%;
+    --sidebar-ring: 217 91% 60%;
 
     /* Typography */
     --font-heading: 'Roboto', 'Inter', sans-serif;
     --font-primary: 'Inter', 'Roboto', sans-serif;
 
-    /* Spacing tokens */
+    /* Spacing */
     --spacing-xs: 0.25rem;
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
     --spacing-lg: 1.5rem;
     --spacing-xl: 2rem;
 
-    /* Radius tokens */
+    /* Radius */
     --radius-sm: 4px;
     --radius-base: 8px;
     --radius-md: 10px;
     --radius-lg: 12px;
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    /* CellphoneS-style shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(60 64 67 / 0.1);
+    --shadow: 0 1px 2px 0 rgb(60 64 67 / 0.1), 0 2px 6px 2px rgb(60 64 67 / 0.15);
+    --shadow-md: 0 1px 3px 0 rgb(60 64 67 / 0.15), 0 4px 8px 3px rgb(60 64 67 / 0.1);
+    --shadow-lg: 0 1px 3px 0 rgb(60 64 67 / 0.15), 0 8px 16px 4px rgb(60 64 67 / 0.1);
+    --shadow-xl: 0 2px 6px 0 rgb(60 64 67 / 0.15), 0 16px 24px 8px rgb(60 64 67 / 0.1);
   }
 
   .dark {
-    --background: 220 20% 10%;
+    --background: 214 20% 10%;
     --foreground: 0 0% 95%;
 
-    --card: 220 20% 13%;
+    --card: 214 20% 13%;
     --card-foreground: 0 0% 95%;
 
-    --popover: 220 20% 13%;
+    --popover: 214 20% 13%;
     --popover-foreground: 0 0% 95%;
 
     --primary: 354 85% 55%;
@@ -118,11 +124,11 @@
     --secondary: 354 30% 20%;
     --secondary-foreground: 354 80% 75%;
 
-    --accent: 220 80% 60%;
+    --accent: 217 80% 60%;
     --accent-foreground: 0 0% 100%;
 
-    --muted: 220 20% 18%;
-    --muted-foreground: 220 10% 60%;
+    --muted: 214 20% 18%;
+    --muted-foreground: 214 10% 60%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -133,26 +139,25 @@
     --warning: 43 96% 50%;
     --warning-foreground: 0 0% 100%;
 
-    /* Stage colors for dark mode */
     --stage-1: 354 80% 55%;
-    --stage-2: 220 70% 55%;
+    --stage-2: 217 70% 55%;
     --stage-3: 260 60% 65%;
     --stage-4: 320 60% 60%;
     --stage-5: 43 80% 55%;
     --stage-6: 145 50% 50%;
 
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
+    --border: 214 20% 20%;
+    --input: 214 20% 20%;
     --ring: 354 85% 55%;
 
-    --sidebar-background: 220 20% 8%;
+    --sidebar-background: 214 20% 8%;
     --sidebar-foreground: 0 0% 95%;
     --sidebar-primary: 354 85% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 15%;
+    --sidebar-accent: 214 20% 15%;
     --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 220 20% 15%;
-    --sidebar-ring: 220 80% 60%;
+    --sidebar-border: 214 20% 15%;
+    --sidebar-ring: 217 80% 60%;
   }
 }
 
@@ -168,6 +173,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-primary);
+    line-height: 1.5;
   }
 
   h1, h2, h3, h4, h5, h6, .heading {
@@ -177,6 +183,7 @@
 }
 
 @layer utilities {
+  /* Gradient text — red to blue */
   .text-gradient {
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
@@ -194,6 +201,7 @@
     background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--color-brand-700)));
   }
 
+  /* CellphoneS-style card shadow */
   .card-shadow {
     box-shadow: var(--shadow);
   }
