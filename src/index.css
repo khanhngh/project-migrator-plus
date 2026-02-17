@@ -1,22 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* UEH Design System */
+/* Teamworks UEH Design System - Red Theme (#D70018) */
 @layer base {
   :root {
-    /* UEH Brand Colors */
-    --ueh-teal: 183 100% 21%;
-    --ueh-teal-light: 183 58% 30%;
-    --ueh-teal-lighter: 183 40% 93%;
-    --ueh-orange: 18 88% 58%;
-    --ueh-orange-light: 18 88% 66%;
-    --ueh-orange-lighter: 18 90% 97%;
+    /* Brand Colors - CellphoneS-inspired Red */
+    --color-brand-50: 354 80% 95%;
+    --color-brand-100: 354 78% 90%;
+    --color-brand-200: 354 75% 82%;
+    --color-brand-300: 354 80% 68%;
+    --color-brand-400: 354 90% 52%;
+    --color-brand-500: 354 100% 42%;
+    --color-brand-600: 354 100% 38%;
+    --color-brand-700: 354 100% 32%;
+    --color-brand-800: 354 100% 26%;
+    --color-brand-900: 354 95% 20%;
 
     /* Semantic mapping */
-    --background: 0 0% 99%;
+    --background: 220 20% 97%;
     --foreground: 220 20% 10%;
 
     --card: 0 0% 100%;
@@ -25,13 +29,13 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
 
-    --primary: 183 100% 21%;
+    --primary: 354 100% 42%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 183 40% 93%;
-    --secondary-foreground: 183 100% 21%;
+    --secondary: 354 80% 95%;
+    --secondary-foreground: 354 100% 42%;
 
-    --accent: 18 88% 58%;
+    --accent: 220 90% 56%;
     --accent-foreground: 0 0% 100%;
 
     --muted: 220 14% 96%;
@@ -40,42 +44,55 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 160 84% 40%;
+    --success: 145 70% 42%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 43 96% 50%;
     --warning-foreground: 0 0% 100%;
 
     /* Stage colors for visual distinction */
-    --stage-1: 183 100% 30%;
-    --stage-2: 200 80% 45%;
+    --stage-1: 354 100% 42%;
+    --stage-2: 220 80% 50%;
     --stage-3: 260 70% 55%;
     --stage-4: 320 70% 50%;
-    --stage-5: 18 85% 55%;
-    --stage-6: 140 60% 40%;
+    --stage-5: 43 90% 50%;
+    --stage-6: 145 60% 40%;
 
-    --info: 183 100% 21%;
+    --info: 220 90% 56%;
     --info-foreground: 0 0% 100%;
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 183 100% 21%;
+    --ring: 354 100% 42%;
 
     --radius: 0.5rem;
 
     /* Sidebar */
-    --sidebar-background: 183 100% 21%;
+    --sidebar-background: 354 100% 42%;
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 183 100% 21%;
-    --sidebar-accent: 183 58% 30%;
+    --sidebar-primary-foreground: 354 100% 42%;
+    --sidebar-accent: 354 100% 38%;
     --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 183 80% 15%;
-    --sidebar-ring: 18 88% 58%;
+    --sidebar-border: 354 100% 32%;
+    --sidebar-ring: 220 90% 56%;
 
     /* Typography */
-    --font-heading: 'Poppins', sans-serif;
-    --font-primary: 'Inter', sans-serif;
+    --font-heading: 'Roboto', 'Inter', sans-serif;
+    --font-primary: 'Inter', 'Roboto', sans-serif;
+
+    /* Spacing tokens */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+
+    /* Radius tokens */
+    --radius-sm: 4px;
+    --radius-base: 8px;
+    --radius-md: 10px;
+    --radius-lg: 12px;
 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -95,13 +112,13 @@
     --popover: 220 20% 13%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 183 80% 45%;
+    --primary: 354 85% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 183 30% 20%;
-    --secondary-foreground: 183 80% 75%;
+    --secondary: 354 30% 20%;
+    --secondary-foreground: 354 80% 75%;
 
-    --accent: 18 88% 58%;
+    --accent: 220 80% 60%;
     --accent-foreground: 0 0% 100%;
 
     --muted: 220 20% 18%;
@@ -110,32 +127,32 @@
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 160 84% 40%;
+    --success: 145 70% 42%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 43 96% 50%;
     --warning-foreground: 0 0% 100%;
 
     /* Stage colors for dark mode */
-    --stage-1: 183 80% 50%;
-    --stage-2: 200 70% 55%;
+    --stage-1: 354 80% 55%;
+    --stage-2: 220 70% 55%;
     --stage-3: 260 60% 65%;
     --stage-4: 320 60% 60%;
-    --stage-5: 18 80% 60%;
-    --stage-6: 140 50% 50%;
+    --stage-5: 43 80% 55%;
+    --stage-6: 145 50% 50%;
 
     --border: 220 20% 20%;
     --input: 220 20% 20%;
-    --ring: 183 80% 45%;
+    --ring: 354 85% 55%;
 
     --sidebar-background: 220 20% 8%;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 183 80% 45%;
+    --sidebar-primary: 354 85% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 20% 15%;
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 220 20% 15%;
-    --sidebar-ring: 18 88% 58%;
+    --sidebar-ring: 220 80% 60%;
   }
 }
 
@@ -174,7 +191,7 @@
   }
 
   .gradient-hero {
-    background: linear-gradient(135deg, hsl(183 100% 21%), hsl(183 80% 30%));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--color-brand-700)));
   }
 
   .card-shadow {
